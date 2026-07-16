@@ -11,6 +11,8 @@ public enum PlatformPermission {
     PLATFORM_AUDIT_READ("platform.audit.read", "platform", false),
     PLATFORM_RELIABILITY_READ("platform.reliability.read", "platform", false),
     PLATFORM_RELIABILITY_MANAGE("platform.reliability.manage", "platform", false),
+    COMMERCIAL_PARTIES_READ("commercial.parties.read", "platform", false),
+    COMMERCIAL_PARTIES_MANAGE("commercial.parties.manage", "platform", false),
     ACADEMY_STUDENTS_READ("academy.students.read", "academy", true),
     ACADEMY_STUDENTS_WRITE("academy.students.write", "academy", true),
     ACADEMY_ATTENDANCE_MANAGE("academy.attendance.manage", "academy", true),
