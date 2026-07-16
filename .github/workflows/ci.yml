@@ -33,8 +33,12 @@ jobs:
           node-version: "22"
       - name: Install dependencies
         run: npm --prefix frontend install
-      - name: Check frontend
-        run: npm --prefix frontend run check
+      - name: Lint frontend
+        run: npm --prefix frontend run lint
+      - name: Typecheck frontend
+        run: npm --prefix frontend run typecheck
+      - name: Test frontend
+        run: npm --prefix frontend run test
       - name: Build frontend
         run: npm --prefix frontend run build
 
