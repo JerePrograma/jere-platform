@@ -358,7 +358,8 @@ class PartyReferenceIntegrationIT {
         assertThat(imported.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(imported.getBody()).containsOnlyKeys("party", "mutation", "replayed");
         var partyPayload = (Map<?, ?>) imported.getBody().get("party");
-        assertThat(partyPayload.keySet()).containsExactlyInAnyOrder(
+        var responseKeys = partyPayload.keySet().stream().map(String::valueOf).toList();
+        assertThat(responseKeys).containsExactlyInAnyOrder(
             "id", "sourceType", "sourceId", "displayName", "active", "createdAt", "updatedAt"
         );
         assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.OK);
