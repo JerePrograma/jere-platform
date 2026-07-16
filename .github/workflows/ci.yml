@@ -32,11 +32,13 @@ jobs:
         with:
           node-version: "22"
       - name: Install dependencies
-        run: npm --prefix frontend install
+        run: npm --prefix frontend install --silent
       - name: Lint frontend
         run: npm --prefix frontend run lint
-      - name: Typecheck frontend
-        run: npm --prefix frontend run typecheck
+      - name: Typecheck shared UI
+        run: npm --prefix frontend run typecheck --workspace @jere-platform/ui
+      - name: Typecheck platform shell
+        run: npm --prefix frontend run typecheck --workspace @jere-platform/platform-shell
       - name: Test frontend
         run: npm --prefix frontend run test
       - name: Build frontend
