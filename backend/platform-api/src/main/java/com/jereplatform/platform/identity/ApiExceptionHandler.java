@@ -1,5 +1,6 @@
 package com.jereplatform.platform.identity;
 
+import com.jereplatform.kernel.authorization.api.AuthorizationDeniedException;
 import com.jereplatform.kernel.identity.api.AuthenticationFailureException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AuthenticationFailureException.class)
     ResponseEntity<Map<String, String>> authenticationFailure() {
         return response(HttpStatus.UNAUTHORIZED, "authentication_failed");
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    ResponseEntity<Map<String, String>> authorizationDenied() {
+        return response(HttpStatus.FORBIDDEN, "authorization_denied");
     }
 
     @ExceptionHandler(RefreshIntentRequiredException.class)

@@ -21,7 +21,23 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Verify backend
-        run: mvn -B -f backend/pom.xml verify
+        shell: bash
+        run: |
+          set +e
+          mvn -B -f backend/pom.xml verify > backend-verify.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            tail -n 200 backend-verify.log
+          fi
+          exit "$status"
+      - name: Upload backend failure log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-verify-log
+          path: backend-verify.log
+          retention-days: 1
+          if-no-files-found: error
 
   frontend:
     runs-on: ubuntu-latest

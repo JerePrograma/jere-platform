@@ -13,7 +13,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "verify:permissions": "node scripts/verify-permission-contract.mjs",
+    "check": "npm run verify:permissions && npm run lint && npm run typecheck && npm run test"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

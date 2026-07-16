@@ -1,5 +1,6 @@
 package com.jereplatform.kernel.identity.application;
 
+import com.jereplatform.kernel.authorization.application.AuthorizationAdministrationService;
 import com.jereplatform.kernel.identity.api.BootstrapAdministrationCommand;
 import com.jereplatform.kernel.identity.api.BootstrapAdministrationResult;
 import com.jereplatform.kernel.identity.internal.persistence.BootstrapMarkerRepository;
@@ -14,17 +15,20 @@ public class BootstrapAdministrationService {
     private final BootstrapMarkerRepository bootstrapMarkerRepository;
     private final TenantProvisioningService tenantProvisioningService;
     private final CredentialRegistrationService credentialRegistrationService;
+    private final AuthorizationAdministrationService authorizationAdministrationService;
     private final Clock clock;
 
     public BootstrapAdministrationService(
         BootstrapMarkerRepository bootstrapMarkerRepository,
         TenantProvisioningService tenantProvisioningService,
         CredentialRegistrationService credentialRegistrationService,
+        AuthorizationAdministrationService authorizationAdministrationService,
         Clock clock
     ) {
         this.bootstrapMarkerRepository = bootstrapMarkerRepository;
         this.tenantProvisioningService = tenantProvisioningService;
         this.credentialRegistrationService = credentialRegistrationService;
+        this.authorizationAdministrationService = authorizationAdministrationService;
         this.clock = clock;
     }
 
@@ -57,6 +61,7 @@ public class BootstrapAdministrationService {
             organizationId
         );
         tenantProvisioningService.grantBranch(tenantId, membershipId, branchId);
+        authorizationAdministrationService.bootstrapOwner(tenantId, membershipId);
 
         return new BootstrapAdministrationResult(
             tenantId,
