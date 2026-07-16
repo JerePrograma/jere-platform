@@ -1,3 +1,6 @@
+ALTER TABLE platform.bootstrap_marker
+    ADD COLUMN identity_bootstrapped_at TIMESTAMPTZ;
+
 ALTER TABLE platform.membership
     ADD CONSTRAINT uq_membership_tenant_id_identity
     UNIQUE (tenant_id, id, identity_id);
