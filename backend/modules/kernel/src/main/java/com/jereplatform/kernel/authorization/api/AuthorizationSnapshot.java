@@ -1,12 +1,12 @@
 package com.jereplatform.kernel.authorization.api;
 
-import com.jereplatform.kernel.tenancy.api.BranchId;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public record AuthorizationSnapshot(
     Set<String> tenantPermissions,
-    Map<BranchId, Set<String>> branchPermissions,
+    Map<UUID, Set<String>> branchPermissions,
     Set<String> entitlements,
     Map<String, Boolean> featureFlags
 ) {
