@@ -33,4 +33,11 @@ class ModuleArchitectureTest {
             .that().resideInAnyPackage("..kernel..", "..commercial..", "..verticals..")
             .should().dependOnClassesThat()
             .resideInAPackage("..platform..");
+
+    @ArchTest
+    static final ArchRule kernel_internal_packages_must_remain_encapsulated =
+        noClasses()
+            .that().resideInAnyPackage("..commercial..", "..verticals..", "..platform..")
+            .should().dependOnClassesThat()
+            .resideInAPackage("..kernel..internal..");
 }
