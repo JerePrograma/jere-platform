@@ -37,8 +37,10 @@ jobs:
         run: npm --prefix frontend run lint
       - name: Typecheck shared UI
         run: npm --prefix frontend run typecheck --workspace @jere-platform/ui
-      - name: Typecheck platform shell
-        run: npm --prefix frontend run typecheck --workspace @jere-platform/platform-shell
+      - name: Typecheck shell application
+        run: npm --prefix frontend run typecheck:app --workspace @jere-platform/platform-shell
+      - name: Typecheck Vite configuration
+        run: npm --prefix frontend run typecheck:config --workspace @jere-platform/platform-shell
       - name: Test frontend
         run: npm --prefix frontend run test
       - name: Build frontend
