@@ -25,6 +25,14 @@ public class PartyReferenceStore {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    public void lockSourceKey(UUID tenantId, String sourceType, String sourceId) {
+        jdbcTemplate.queryForObject(
+            "select pg_advisory_xact_lock(hashtextextended(?, 0))",
+            Long.class,
+            tenantId + ":" + sourceType + ":" + sourceId
+        );
+    }
+
     public Optional<PartyReferenceView> findBySourceKey(
         UUID tenantId,
         String sourceType,
