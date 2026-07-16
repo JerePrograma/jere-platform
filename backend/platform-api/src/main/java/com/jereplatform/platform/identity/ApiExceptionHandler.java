@@ -21,6 +21,16 @@ public class ApiExceptionHandler {
         return response(HttpStatus.FORBIDDEN, "refresh_intent_required");
     }
 
+    @ExceptionHandler(BootstrapAccessDeniedException.class)
+    ResponseEntity<Map<String, String>> bootstrapAccessDenied() {
+        return response(HttpStatus.FORBIDDEN, "bootstrap_access_denied");
+    }
+
+    @ExceptionHandler(BootstrapDisabledException.class)
+    ResponseEntity<Map<String, String>> bootstrapDisabled() {
+        return response(HttpStatus.NOT_FOUND, "not_found");
+    }
+
     @ExceptionHandler(InvalidCorrelationIdException.class)
     ResponseEntity<Map<String, String>> invalidCorrelationId() {
         return response(HttpStatus.BAD_REQUEST, "invalid_correlation_id");
