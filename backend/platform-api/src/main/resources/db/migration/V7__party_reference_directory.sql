@@ -17,6 +17,30 @@ INSERT INTO platform.base_role_template_permission (system_key, permission_code)
     ('OPERATOR', 'commercial.parties.read'),
     ('VIEWER', 'commercial.parties.read');
 
+INSERT INTO platform.tenant_role_permission (tenant_id, role_id, permission_code)
+SELECT role.tenant_id, role.id, permission.permission_code
+  FROM platform.tenant_role role
+  JOIN (
+      VALUES
+          ('OWNER', 'commercial.parties.read'),
+          ('OWNER', 'commercial.parties.manage'),
+          ('OPERATOR', 'commercial.parties.read'),
+          ('VIEWER', 'commercial.parties.read')
+  ) AS permission(system_key, permission_code)
+    ON permission.system_key = role.system_key
+ON CONFLICT DO NOTHING;
+
+UPDATE platform.tenant_role
+   SET managed_template_version = CASE system_key
+       WHEN 'OWNER' THEN 3
+       WHEN 'OPERATOR' THEN 2
+       WHEN 'VIEWER' THEN 2
+       ELSE managed_template_version
+   END,
+       updated_at = now(),
+       version = version + 1
+ WHERE system_key IN ('OWNER', 'OPERATOR', 'VIEWER');
+
 CREATE TABLE platform.party_reference (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
