@@ -1,69 +1,116 @@
 # Jere Platform
 
-Plataforma técnica para construir, operar y comercializar productos SaaS verticales sin duplicar autenticación, autorización, tenancy, pagos, caja, documentos, notificaciones, auditoría e infraestructura en cada producto.
+Plataforma técnica para construir y operar productos SaaS verticales sin duplicar autenticación, autorización, tenancy, auditoría, infraestructura y componentes de interfaz.
 
-> Estado: fundación arquitectónica. Este repositorio todavía no contiene una aplicación productiva ni reemplaza a Gestudio u otros productos existentes.
+> Estado: foundation runtime. El repositorio contiene una base ejecutable, pero todavía no reemplaza a Gestudio ni incorpora lógica comercial propietaria.
 
-## Propósito
+## Modelo
 
-Jere Platform no es un ERP genérico ni un conjunto de microservicios. Es una base modular multi-tenant sobre la cual se desarrollan productos especializados con propuestas comerciales independientes.
+Jere Platform no es un ERP genérico ni un conjunto de microservicios. Es un monorepo con:
 
-Productos iniciales previstos:
+- un monolito modular Java 21 + Spring Boot;
+- PostgreSQL y Flyway;
+- un workspace React + TypeScript + Vite;
+- módulos técnicos compartidos;
+- aplicaciones verticales comercialmente independientes.
 
-- **Gestudio**: academias, institutos, clubes y espacios con alumnos, actividades y cuotas.
+Productos previstos:
+
+- **Gestudio**: academias, institutos, clubes y organizaciones con cuotas.
 - **Comercio**: inventario, presupuestos, ventas, caja y cuentas corrientes.
-- **Turnos**: agendas, disponibilidad, reservas y recordatorios para servicios no regulados.
-- **Portales**: directorios y publicaciones para turismo, inmuebles y comercios.
+- **Turnos**: agendas y reservas para servicios no regulados.
+- **Portales**: directorios, publicaciones y generación de contactos.
 
-Productos de mayor riesgo, como préstamos, salud o tributación, podrán reutilizar componentes y contratos, pero mantendrán despliegue y datos separados.
+Préstamos, salud y tributación deberán conservar despliegues y bases de datos separados.
 
-## Decisiones iniciales
-
-- Monorepo.
-- Monolito modular antes que microservicios.
-- Java 21, Spring Boot, PostgreSQL y Flyway para backend.
-- React, TypeScript y Vite para frontend.
-- Arquitectura multi-tenant desde el modelo de datos.
-- RBAC, entitlements y alcance por organización/sucursal como conceptos diferentes.
-- Integraciones externas mediante outbox y workers cuando corresponda.
-- Migración selectiva desde repositorios existentes; no se fusionarán historiales completos.
-- Una única implementación canónica por capacidad compartida.
-
-## Límites de alto nivel
+## Estructura actual
 
 ```text
-jere-platform/
-├── apps/                 # aplicaciones ejecutables
-├── modules/
-│   ├── kernel/           # tenancy, identidad, permisos, auditoría
-│   ├── commercial-core/  # clientes, catálogo, cobros, caja, documentos
-│   └── verticals/        # academia, inventario, turnos, etc.
-├── packages/             # UI kit, contratos y clientes compartidos
-├── infra/                # despliegue, backups, CI y observabilidad
-└── docs/                 # ADR, arquitectura, migración y roadmap
+backend/
+├── platform-api/
+└── modules/
+    ├── kernel/
+    ├── commercial-core/
+    └── verticals/
+
+frontend/
+├── apps/platform-shell/
+└── packages/ui/
+
+infra/
+└── compose.yaml
 ```
 
-## Principios no negociables
+La estructura crecerá por capacidades validadas, no por carpetas especulativas.
 
-1. Un módulo no accede directamente a las tablas internas de otro módulo.
-2. Toda entidad perteneciente a un cliente debe quedar aislada por tenant.
-3. Permisos, módulos contratados y configuración no se modelan como el mismo concepto.
-4. No se extrae un microservicio sin una razón operativa medible.
-5. No se generaliza una abstracción por un único caso de uso.
-6. No se migra código sin pruebas de caracterización o criterios de aceptación.
-7. La plataforma no debe detener la comercialización del producto principal.
+## Requisitos
 
-## Primera secuencia de trabajo
+- JDK 21
+- Maven 3.9+
+- Node.js 22+
+- npm 10+
+- Docker con Compose
 
-1. Definir arquitectura, convenciones y criterios de migración.
-2. Crear el esqueleto ejecutable y la validación CI.
-3. Implementar tenancy, identidad, RBAC, entitlements y auditoría.
-4. Extraer desde Gestudio las capacidades compartidas ya probadas.
-5. Implementar la vertical `academy` y validar paridad funcional.
-6. Incorporar `commerce-inventory` como segunda prueba de reutilización.
-7. Evaluar extracción de servicios sólo después de contar con carga y necesidades reales.
+## Inicio local
 
-## Repositorios fuente iniciales
+```bash
+cp .env.example .env
+docker compose --env-file .env -f infra/compose.yaml up -d
+mvn -B -f backend/pom.xml verify
+npm --prefix frontend install
+npm --prefix frontend run check
+npm --prefix frontend run build
+```
+
+Backend:
+
+```bash
+mvn -B -f backend/pom.xml -pl platform-api -am package -DskipTests
+java -jar backend/platform-api/target/platform-api-0.1.0-SNAPSHOT.jar
+```
+
+Frontend:
+
+```bash
+npm --prefix frontend run dev
+```
+
+Puntos de control:
+
+- API: `http://localhost:8080`
+- Health: `http://localhost:8080/actuator/health`
+- Frontend: `http://localhost:5173`
+- PostgreSQL: `localhost:5432`
+
+## Validación
+
+Linux/macOS:
+
+```bash
+./scripts/validate.sh
+```
+
+PowerShell:
+
+```powershell
+./scripts/validate.ps1
+```
+
+Los tests de integración PostgreSQL usan Testcontainers y se omiten automáticamente cuando Docker no está disponible.
+
+## Límites
+
+1. El módulo `kernel` no depende del núcleo comercial ni de verticales.
+2. El núcleo comercial no depende de verticales.
+3. Una vertical puede consumir contratos públicos del kernel y del núcleo comercial.
+4. Ningún módulo accede directamente a tablas internas de otro.
+5. No se incorpora código completo desde repositorios anteriores.
+6. Toda migración se realiza por un caso de uso coherente y comprobable.
+7. No se extraen microservicios sin una necesidad operativa demostrada.
+
+Las reglas de dependencia se verifican mediante tests de arquitectura.
+
+## Repositorios fuente
 
 - `JerePrograma/Gestudio`
 - `JerePrograma/inventarios-muebleria`
@@ -71,12 +118,12 @@ jere-platform/
 - `JerePrograma/PresupuestadorFlete`
 - `JerePrograma/jr-prestamos-platform`
 
-Estos repositorios son fuentes de conocimiento y código candidato. No serán dependencias permanentes ni se copiarán íntegramente.
+Son fuentes de evidencia. No son dependencias permanentes ni se fusionarán íntegramente.
 
-## Seguridad
+## Publicación y propiedad intelectual
 
-Este repositorio es público. No deben incluirse secretos, credenciales, datos reales de clientes, dumps productivos ni configuraciones privadas. El núcleo comercial propietario deberá revisarse antes de cada publicación.
+El repositorio permanece públicamente visible durante la etapa fundacional, bajo una licencia propietaria de todos los derechos reservados. Esto **no** lo convierte en software open source.
 
-## Licencia
+No debe incorporarse lógica comercial sensible, secretos, datos reales ni implementaciones propietarias de clientes mientras el repositorio continúe público. Antes de migrar verticales comerciales debe cambiarse la visibilidad o separarse el código privado.
 
-Todavía no se definió una licencia de distribución. Hasta tomar esa decisión, no asumir que el código puede reutilizarse o redistribuirse libremente.
+Véase `docs/adr/0002-source-visibility-and-license.md`.

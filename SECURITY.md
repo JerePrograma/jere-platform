@@ -2,32 +2,36 @@
 
 ## Repository status
 
-This repository is public. Do not commit credentials, tokens, certificates, private keys, customer data, production exports or private infrastructure details.
+This repository is publicly visible and uses a proprietary all-rights-reserved license. Public visibility does not make the source open source and does not make it suitable for storing confidential implementations.
+
+Do not commit:
+
+- credentials, tokens, certificates or private keys;
+- customer or employee data;
+- production exports, logs or database dumps;
+- private infrastructure details;
+- proprietary customer-specific logic;
+- regulated financial, health or tax data.
 
 ## Supported versions
 
-The project is in foundation stage and has no supported production release yet. Security fixes should target the default branch and any explicitly maintained release branches once they exist.
+The project is in foundation stage and has no supported production release. Security fixes target the default branch until release branches are explicitly introduced.
 
 ## Reporting a vulnerability
 
-Do not open a public issue containing exploitable details or sensitive information. Contact the repository owner privately through an agreed channel and include:
-
-- affected component;
-- reproducible impact;
-- prerequisites;
-- suggested mitigation, when available;
-- whether any real data or credentials may have been exposed.
+Do not open a public issue containing exploitable details. Contact the repository owner privately and include the affected component, reproducible impact, prerequisites and suggested mitigation.
 
 ## Development requirements
 
 - Use environment variables or external secret stores.
 - Keep `.env` and credential files outside version control.
-- Use anonymized test fixtures.
+- Use anonymized, repeatable fixtures.
 - Treat tenant isolation and authorization bypasses as security defects.
-- Avoid logging tokens, passwords, complete payment data or sensitive personal fields.
-- Rotate any credential immediately if it is committed, even if the commit is later removed.
-- Review third-party dependencies and container images through automated checks.
+- Avoid logging credentials, session tokens, complete payment data or sensitive personal fields.
+- Rotate any credential immediately if committed.
+- Run dependency and secret checks in CI.
+- Keep proprietary vertical implementations outside this public repository until visibility is changed.
 
-## Public repository warning
+## Security boundary
 
-Before moving proprietary implementations into this repository, decide whether the source should remain public and define an explicit license. Absence of a license does not replace access control or prevent source disclosure.
+The current codebase is a generic runtime foundation. Before production workloads are introduced, add threat modelling for tenancy, authentication, authorization, audit, outbox processing and backup recovery.

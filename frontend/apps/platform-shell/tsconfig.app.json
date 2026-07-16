@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@jere-platform/ui": ["../../packages/ui/src/index.tsx"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}
