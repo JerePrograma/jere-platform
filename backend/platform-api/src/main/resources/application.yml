@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: jere-platform-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/jere_platform}
+    username: ${DB_USER:jere_platform}
+    password: ${DB_PASSWORD:local_only_change_me}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+server:
+  shutdown: graceful
