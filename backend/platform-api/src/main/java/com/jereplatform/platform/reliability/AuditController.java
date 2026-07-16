@@ -1,9 +1,8 @@
 package com.jereplatform.platform.reliability;
 
-import com.jereplatform.kernel.reliability.api.AuditEventView;
 import com.jereplatform.kernel.reliability.application.AuditQueryService;
 import com.jereplatform.platform.identity.PlatformPrincipal;
-import java.util.List;
+import java.util.Map;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,11 +22,15 @@ public class AuditController {
 
     @GetMapping
     @PreAuthorize("@platformAuthorization.can(authentication, 'platform.audit.read')")
-    public List<AuditEventView> latest(
+    public Map<String, Object> latest(
         Authentication authentication,
         @RequestParam(defaultValue = "50") int limit
     ) {
         var principal = (PlatformPrincipal) authentication.getPrincipal();
-        return auditQueryService.latest(principal.tenantContext(), limit);
+        var events = auditQueryService.latest(principal.tenantContext(), limit);
+        return Map.of(
+            "events", events,
+            "count", events.size()
+        );
     }
 }
