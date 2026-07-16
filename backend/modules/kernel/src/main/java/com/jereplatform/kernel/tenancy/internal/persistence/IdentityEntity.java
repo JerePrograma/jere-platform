@@ -49,6 +49,10 @@ public class IdentityEntity {
         return id;
     }
 
+    public String getExternalSubject() {
+        return externalSubject;
+    }
+
     public LifecycleStatus getStatus() {
         return status;
     }
