@@ -1,0 +1,16 @@
+[
+  {"code":"platform.session.read","moduleCode":"platform","branchScoped":false},
+  {"code":"platform.memberships.manage","moduleCode":"platform","branchScoped":false},
+  {"code":"platform.roles.manage","moduleCode":"platform","branchScoped":false},
+  {"code":"platform.entitlements.read","moduleCode":"platform","branchScoped":false},
+  {"code":"academy.students.read","moduleCode":"academy","branchScoped":true},
+  {"code":"academy.students.write","moduleCode":"academy","branchScoped":true},
+  {"code":"academy.attendance.manage","moduleCode":"academy","branchScoped":true},
+  {"code":"academy.billing.read","moduleCode":"academy","branchScoped":false},
+  {"code":"academy.billing.manage","moduleCode":"academy","branchScoped":false},
+  {"code":"commerce.customers.read","moduleCode":"commerce","branchScoped":false},
+  {"code":"commerce.inventory.read","moduleCode":"commerce","branchScoped":true},
+  {"code":"commerce.inventory.manage","moduleCode":"commerce","branchScoped":true},
+  {"code":"commerce.cash.read","moduleCode":"commerce","branchScoped":true},
+  {"code":"commerce.cash.manage","moduleCode":"commerce","branchScoped":true}
+]
