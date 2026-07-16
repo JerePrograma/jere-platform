@@ -340,7 +340,7 @@ class PartyReferenceIntegrationIT {
             "/api/party-references",
             HttpMethod.GET,
             HttpEntity.EMPTY,
-            String.class
+            Map.class
         );
         var forbidden = getParties(login(unauthorized));
         var imported = importParty(login(owner), unique("http-import"), Map.of(
@@ -352,11 +352,15 @@ class PartyReferenceIntegrationIT {
         var accepted = getParties(login(owner));
 
         assertThat(anonymous.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(anonymous.getBody()).containsEntry("code", "authentication_required");
         assertThat(forbidden.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(forbidden.getBody()).containsEntry("code", "authorization_denied");
         assertThat(imported.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(imported.getBody()).containsOnlyKeys("party", "mutation", "replayed");
-        assertThat((Map<?, ?>) imported.getBody().get("party"))
-            .containsOnlyKeys("id", "sourceType", "sourceId", "displayName", "active", "createdAt", "updatedAt");
+        var partyPayload = (Map<?, ?>) imported.getBody().get("party");
+        assertThat(partyPayload.keySet()).containsExactlyInAnyOrder(
+            "id", "sourceType", "sourceId", "displayName", "active", "createdAt", "updatedAt"
+        );
         assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
