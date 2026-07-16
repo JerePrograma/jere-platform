@@ -81,7 +81,7 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion><version>[21,22)</version></requireJavaVersion>
-                                <requireMavenVersion><version>[3.9,)</version></requireMavenVersion>
+                                <requireMavenVersion><version>[3.6.3,)</version></requireMavenVersion>
                                 <dependencyConvergence/>
                             </rules>
                         </configuration>
