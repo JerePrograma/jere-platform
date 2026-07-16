@@ -1,0 +1,28 @@
+version: 1
+frozen_at: 2026-07-16
+platform:
+  repository: JerePrograma/jere-platform
+  commit: 74ef83efba778835867e185f9f923e856d464b68
+sources:
+  gestudio:
+    repository: JerePrograma/Gestudio
+    commit: 3f314ba8cc61a71bfa434a46593cd02336ec16e5
+    role: current-active-product
+  inventarios_current:
+    repository: JerePrograma/inventarios-muebleria
+    commit: b692017bd16fffb4c0cc63a1571f8a749c1636dc
+    role: current-auth-and-parties-only
+  inventarios_legacy_commercial:
+    repository: JerePrograma/inventarios-muebleria
+    commit: 4e3a09007f8ab8b9c574438aab19332cbc7f605b
+    role: legacy-commercial-evidence-only
+  inventarios_refactor_boundary:
+    repository: JerePrograma/inventarios-muebleria
+    commit: 831a05d14175cc54c834d31aa22a807e4ff61021
+    role: removed-legacy-commercial-backend
+rules:
+  - legacy evidence does not count as a second current implementation
+  - shared persistence requires two current proven uses
+  - source product JPA entities are not copied into commercial-core
+  - financial cancellation uses compensating records
+  - party profiles remain vertical; only party references are shared
