@@ -59,10 +59,12 @@ Docker debe estar operativo para ejecutar la prueba de integración PostgreSQL/T
 cp .env.example .env
 docker compose --env-file .env -f infra/compose.yaml up -d
 mvn -B -f backend/pom.xml verify
-npm --prefix frontend install
+npm --prefix frontend ci
 npm --prefix frontend run check
 npm --prefix frontend run build
 ```
+
+`npm ci` usa el `frontend/package-lock.json` versionado y falla cuando los manifiestos y el lockfile no coinciden. Para actualizar dependencias, modificar los manifiestos y regenerar el lockfile con la versión soportada de Node.js/npm; no editar hashes de integridad manualmente.
 
 Backend:
 
