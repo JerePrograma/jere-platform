@@ -2,7 +2,7 @@
 
 Plataforma técnica para construir, operar y comercializar productos SaaS verticales sin duplicar autenticación, autorización, tenancy, pagos, caja, documentos, notificaciones, auditoría e infraestructura en cada producto.
 
-> Estado: fundación arquitectónica. Este repositorio todavía no contiene una aplicación productiva ni reemplaza a Gestudio u otros productos existentes.
+> Estado: fundación ejecutable. El repositorio contiene un monolito modular mínimo, un workspace frontend, PostgreSQL/Flyway, pruebas de arquitectura y CI. Todavía no reemplaza a Gestudio ni contiene lógica comercial migrada.
 
 ## Propósito
 
@@ -17,31 +17,125 @@ Productos iniciales previstos:
 
 Productos de mayor riesgo, como préstamos, salud o tributación, podrán reutilizar componentes y contratos, pero mantendrán despliegue y datos separados.
 
-## Decisiones iniciales
+## Stack fundacional
 
-- Monorepo.
-- Monolito modular antes que microservicios.
-- Java 21, Spring Boot, PostgreSQL y Flyway para backend.
-- React, TypeScript y Vite para frontend.
-- Arquitectura multi-tenant desde el modelo de datos.
-- RBAC, entitlements y alcance por organización/sucursal como conceptos diferentes.
-- Integraciones externas mediante outbox y workers cuando corresponda.
-- Migración selectiva desde repositorios existentes; no se fusionarán historiales completos.
-- Una única implementación canónica por capacidad compartida.
+- Java 21.
+- Spring Boot 3.5.x.
+- Maven multi-módulo.
+- PostgreSQL 17 y Flyway.
+- Testcontainers y ArchUnit.
+- React 19, TypeScript, Vite 8 y Vitest 4.
+- Node.js 24 LTS y npm workspaces.
+- GitHub Actions y Dependabot.
 
-## Límites de alto nivel
+## Estructura actual
 
 ```text
 jere-platform/
-├── apps/                 # aplicaciones ejecutables
-├── modules/
-│   ├── kernel/           # tenancy, identidad, permisos, auditoría
-│   ├── commercial-core/  # clientes, catálogo, cobros, caja, documentos
-│   └── verticals/        # academia, inventario, turnos, etc.
-├── packages/             # UI kit, contratos y clientes compartidos
-├── infra/                # despliegue, backups, CI y observabilidad
-└── docs/                 # ADR, arquitectura, migración y roadmap
+├── backend/
+│   ├── platform-kernel/       # tenancy y capacidades técnicas transversales
+│   ├── commercial-core/       # contratos comerciales compartidos
+│   ├── vertical-academy/      # bounded context de academia
+│   └── platform-api/          # aplicación Spring Boot ejecutable
+├── frontend/
+│   ├── apps/portal/           # shell de producto independiente
+│   └── packages/ui/           # primitivas visuales compartidas
+├── docs/
+│   ├── adr/
+│   ├── architecture/
+│   └── roadmap/
+├── scripts/
+├── compose.yaml
+└── .github/
 ```
+
+## Requisitos
+
+- JDK 21.
+- Maven 3.6.3 o superior.
+- Node.js 24 LTS.
+- npm.
+- Docker con Compose.
+
+## Inicio local
+
+### 1. Base de datos
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+```
+
+En PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d postgres
+```
+
+La configuración por defecto es únicamente local. No debe reutilizarse en producción.
+
+### 2. Backend
+
+```bash
+mvn -f backend/pom.xml -pl platform-api -am spring-boot:run
+```
+
+Verificación de salud:
+
+```text
+http://localhost:8080/actuator/health
+```
+
+### 3. Frontend
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run dev
+```
+
+Aplicación local:
+
+```text
+http://localhost:5173
+```
+
+## Validación completa
+
+Linux/macOS:
+
+```bash
+bash scripts/validate.sh
+```
+
+PowerShell:
+
+```powershell
+./scripts/validate.ps1
+```
+
+Los mismos bloques principales se ejecutan en GitHub Actions:
+
+- compilación y pruebas Maven;
+- migración Flyway sobre PostgreSQL real mediante Testcontainers;
+- reglas de dependencia modular;
+- lint, tipos, pruebas y build frontend;
+- revisión de dependencias;
+- detección de secretos.
+
+## Dependencias permitidas
+
+```text
+platform-kernel
+      ↑
+commercial-core
+      ↑
+vertical-academy
+      ↑
+platform-api
+```
+
+Las pruebas de arquitectura bloquean ciclos y accesos en dirección inversa. Los módulos deben comunicarse mediante contratos públicos; no mediante entidades de persistencia internas.
 
 ## Principios no negociables
 
@@ -52,16 +146,17 @@ jere-platform/
 5. No se generaliza una abstracción por un único caso de uso.
 6. No se migra código sin pruebas de caracterización o criterios de aceptación.
 7. La plataforma no debe detener la comercialización del producto principal.
+8. Una capacidad compartida tiene una única implementación canónica.
 
-## Primera secuencia de trabajo
+## Secuencia de trabajo
 
-1. Definir arquitectura, convenciones y criterios de migración.
-2. Crear el esqueleto ejecutable y la validación CI.
-3. Implementar tenancy, identidad, RBAC, entitlements y auditoría.
-4. Extraer desde Gestudio las capacidades compartidas ya probadas.
-5. Implementar la vertical `academy` y validar paridad funcional.
+1. Consolidar y validar esta fundación.
+2. Implementar tenancy, identidad, RBAC, entitlements y auditoría.
+3. Inventariar Gestudio con referencias a commit, tablas, APIs, UI y pruebas.
+4. Migrar una capacidad por vez, empezando por una vertical completa y verificable.
+5. Validar paridad funcional de `academy`.
 6. Incorporar `commerce-inventory` como segunda prueba de reutilización.
-7. Evaluar extracción de servicios sólo después de contar con carga y necesidades reales.
+7. Evaluar servicios independientes sólo después de contar con carga o aislamiento real.
 
 ## Repositorios fuente iniciales
 
@@ -71,12 +166,12 @@ jere-platform/
 - `JerePrograma/PresupuestadorFlete`
 - `JerePrograma/jr-prestamos-platform`
 
-Estos repositorios son fuentes de conocimiento y código candidato. No serán dependencias permanentes ni se copiarán íntegramente.
+Son fuentes de conocimiento y código candidato. No serán dependencias permanentes ni se copiarán íntegramente.
 
-## Seguridad
+## Seguridad y visibilidad
 
-Este repositorio es público. No deben incluirse secretos, credenciales, datos reales de clientes, dumps productivos ni configuraciones privadas. El núcleo comercial propietario deberá revisarse antes de cada publicación.
+Este repositorio sigue siendo público. No deben incluirse secretos, credenciales, datos reales de clientes, dumps productivos ni configuraciones privadas. Antes de migrar lógica comercial propietaria debe resolverse la visibilidad del repositorio y la estrategia de licencia.
 
 ## Licencia
 
-Todavía no se definió una licencia de distribución. Hasta tomar esa decisión, no asumir que el código puede reutilizarse o redistribuirse libremente.
+Todavía no se definió una licencia de distribución. No asumir que el código puede reutilizarse o redistribuirse libremente.
