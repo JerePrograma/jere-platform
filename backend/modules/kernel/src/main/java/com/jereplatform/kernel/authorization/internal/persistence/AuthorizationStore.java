@@ -256,7 +256,7 @@ public class AuthorizationStore {
             insert into platform.membership_role_assignment (
                 id, tenant_id, membership_id, role_id, branch_id, created_at, version
             ) values (?, ?, ?, ?, ?, ?, 0)
-            on conflict (tenant_id, membership_id, role_id, branch_id)
+            on conflict on constraint uq_membership_role_scope
             do nothing
             """,
             UUID.randomUUID(),
@@ -424,7 +424,9 @@ public class AuthorizationStore {
                and tenant.tenant_id = ?
              order by catalog.code
             """,
-            rs -> flags.put(rs.getString("code"), rs.getBoolean("enabled")),
+            rs -> {
+                flags.put(rs.getString("code"), rs.getBoolean("enabled"));
+            },
             tenantId
         );
         return Map.copyOf(flags);
