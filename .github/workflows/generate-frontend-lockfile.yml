@@ -1,16 +1,20 @@
 name: Generate frontend lockfile
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/generate-frontend-lockfile
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
 
 jobs:
   generate:
-    if: ${{ !contains(github.event.head_commit.message, '[lockfile-generated]') }}
+    if: ${{ github.head_ref == 'agent/generate-frontend-lockfile' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -18,12 +22,24 @@ jobs:
         with:
           ref: agent/generate-frontend-lockfile
           fetch-depth: 0
+      - name: Determine whether generation is required
+        id: guard
+        shell: bash
+        run: |
+          if [[ -f frontend/package-lock.json && ! -f .lockfile-generation-trigger ]]; then
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-node@v7
+        if: steps.guard.outputs.required == 'true'
         with:
           node-version: "22"
       - name: Generate package lock
+        if: steps.guard.outputs.required == 'true'
         run: npm --prefix frontend install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Switch validation to npm ci
+        if: steps.guard.outputs.required == 'true'
         shell: python
         run: |
           from pathlib import Path
@@ -53,16 +69,19 @@ jobs:
                   raise SystemExit(f'Expected command not found in {path}: {old}')
               path.write_text(text.replace(old, new), encoding='utf-8')
       - name: Verify clean install and frontend
+        if: steps.guard.outputs.required == 'true'
         run: |
           rm -rf frontend/node_modules
           npm --prefix frontend ci --silent
           npm --prefix frontend run check
           npm --prefix frontend run build
       - name: Remove temporary trigger and workflow
+        if: steps.guard.outputs.required == 'true'
         run: |
           rm -f .lockfile-generation-trigger
           rm .github/workflows/generate-frontend-lockfile.yml
       - name: Commit generated lockfile
+        if: steps.guard.outputs.required == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
