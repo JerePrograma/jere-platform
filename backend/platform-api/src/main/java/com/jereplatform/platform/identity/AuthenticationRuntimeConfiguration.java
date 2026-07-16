@@ -4,7 +4,6 @@ import com.jereplatform.kernel.identity.api.AuthenticationSessionPolicy;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
-import java.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -61,8 +60,7 @@ public class AuthenticationRuntimeConfiguration {
         byte[] random = new byte[32];
         new SecureRandom().nextBytes(random);
         LOGGER.warn(
-            "AUTH_JWT_SECRET is not configured; using an ephemeral development key: {}",
-            Base64.getEncoder().encodeToString(random)
+            "AUTH_JWT_SECRET is not configured; using an ephemeral development key that changes on restart"
         );
         return random;
     }
