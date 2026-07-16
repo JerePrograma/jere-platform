@@ -6,6 +6,8 @@ export const permissionCodes = [
   'platform.audit.read',
   'platform.reliability.read',
   'platform.reliability.manage',
+  'commercial.parties.read',
+  'commercial.parties.manage',
   'academy.students.read',
   'academy.students.write',
   'academy.attendance.manage',
