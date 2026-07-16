@@ -15,4 +15,11 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, UU
     );
 
     Optional<MembershipEntity> findByIdAndTenantId(UUID id, UUID tenantId);
+
+    Optional<MembershipEntity> findByIdAndTenantIdAndIdentityIdAndStatus(
+        UUID id,
+        UUID tenantId,
+        UUID identityId,
+        LifecycleStatus status
+    );
 }
