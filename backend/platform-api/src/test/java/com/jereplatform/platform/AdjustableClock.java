@@ -7,27 +7,31 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
 
-final class AdjustableClock extends Clock {
+final class AdjustableClock {
 
     private final AtomicReference<Instant> current =
         new AtomicReference<>(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
 
-    @Override
-    public ZoneId getZone() {
-        return ZoneOffset.UTC;
-    }
+    Clock asClock() {
+        return new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return ZoneOffset.UTC;
+            }
 
-    @Override
-    public Clock withZone(ZoneId zone) {
-        if (!ZoneOffset.UTC.equals(zone)) {
-            throw new IllegalArgumentException("Only UTC is supported");
-        }
-        return this;
-    }
+            @Override
+            public Clock withZone(ZoneId zone) {
+                if (!ZoneOffset.UTC.equals(zone)) {
+                    throw new IllegalArgumentException("Only UTC is supported");
+                }
+                return this;
+            }
 
-    @Override
-    public Instant instant() {
-        return current.get();
+            @Override
+            public Instant instant() {
+                return current.get();
+            }
+        };
     }
 
     void reset() {
