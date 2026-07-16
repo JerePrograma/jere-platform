@@ -12,7 +12,6 @@ import com.jereplatform.kernel.tenancy.api.MembershipId;
 import com.jereplatform.kernel.tenancy.api.OrganizationId;
 import com.jereplatform.kernel.tenancy.api.TenantId;
 import com.jereplatform.kernel.tenancy.application.TenantProvisioningService;
-import com.jereplatform.platform.identity.AuthenticationController;
 import com.jereplatform.platform.identity.BootstrapController;
 import com.jereplatform.platform.identity.JwtTokenService;
 import com.jereplatform.platform.identity.RefreshCookieService;
@@ -462,7 +461,7 @@ class AuthenticationLifecycleIT {
         @Bean
         @Primary
         Clock testClock(AdjustableClock adjustableClock) {
-            return adjustableClock;
+            return adjustableClock.asClock();
         }
     }
 }
