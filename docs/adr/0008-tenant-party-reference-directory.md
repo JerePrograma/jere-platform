@@ -40,6 +40,7 @@ The commercial capability comparison in ADR 0007 approved one narrow shared conc
 18. Reconciliation is a read-only dry run. Invalid, duplicate and unknown source records are reported before any write.
 19. Source adapters implement a narrow port and return only `PartySourceRecord`.
 20. The platform does not connect directly to product repositories as part of this slice; real adapters belong to later migration/integration work.
+21. The forward migration updates both role templates and already-materialized managed roles. Custom tenant roles are not modified.
 
 ## API semantics
 
@@ -47,6 +48,7 @@ The commercial capability comparison in ADR 0007 approved one narrow shared conc
 - `commercial.parties.manage` permits import and reconciliation.
 - anonymous access returns `401`;
 - authenticated calls without the permission return `403`;
+- security-filter errors use the same JSON error envelope as application errors;
 - missing or cross-tenant references return `404` without revealing ownership;
 - inactive selection returns `409 party_reference_inactive`;
 - changed-content idempotency reuse returns `409 idempotency_key_conflict`.
@@ -67,6 +69,7 @@ The event payload contains only reference fields. No vertical profile payload is
 - Historical output is stable across profile renames.
 - Search is intentionally limited and cannot replace a source product's complete profile search.
 - New source systems require a deliberate contract and migration rather than arbitrary strings.
+- Existing managed roles receive the new permissions without manual tenant intervention.
 - A separate migration project is still required to implement production Gestudio and Scalaris adapters.
 
 ## Rejected alternatives
