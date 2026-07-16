@@ -58,8 +58,10 @@ jobs:
           npm --prefix frontend ci --silent
           npm --prefix frontend run check
           npm --prefix frontend run build
-      - name: Remove temporary workflow
-        run: rm .github/workflows/generate-frontend-lockfile.yml
+      - name: Remove temporary trigger and workflow
+        run: |
+          rm -f .lockfile-generation-trigger
+          rm .github/workflows/generate-frontend-lockfile.yml
       - name: Commit generated lockfile
         run: |
           git config user.name "github-actions[bot]"
