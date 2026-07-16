@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,7 +70,7 @@ public class AuthorizationService {
 
     public AuthorizationSnapshot snapshot(TenantContext context) {
         var tenantPermissions = new LinkedHashSet<String>();
-        var branchPermissions = new LinkedHashMap<BranchId, Set<String>>();
+        var branchPermissions = new LinkedHashMap<UUID, Set<String>>();
 
         for (var permission : PlatformPermission.values()) {
             if (!permission.branchScoped() && hasPermission(context, permission, null)) {
@@ -84,7 +85,7 @@ public class AuthorizationService {
                     effective.add(permission.code());
                 }
             }
-            branchPermissions.put(branchId, Set.copyOf(effective));
+            branchPermissions.put(branchId.value(), Set.copyOf(effective));
         }
 
         return new AuthorizationSnapshot(
