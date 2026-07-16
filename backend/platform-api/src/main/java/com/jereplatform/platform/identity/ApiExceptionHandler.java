@@ -2,6 +2,8 @@ package com.jereplatform.platform.identity;
 
 import com.jereplatform.kernel.authorization.api.AuthorizationDeniedException;
 import com.jereplatform.kernel.identity.api.AuthenticationFailureException;
+import com.jereplatform.kernel.reliability.api.IdempotencyConflictException;
+import com.jereplatform.kernel.reliability.api.IdempotencyInProgressException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AuthorizationDeniedException.class)
     ResponseEntity<Map<String, String>> authorizationDenied() {
         return response(HttpStatus.FORBIDDEN, "authorization_denied");
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    ResponseEntity<Map<String, String>> idempotencyConflict() {
+        return response(HttpStatus.CONFLICT, "idempotency_key_conflict");
+    }
+
+    @ExceptionHandler(IdempotencyInProgressException.class)
+    ResponseEntity<Map<String, String>> idempotencyInProgress() {
+        return response(HttpStatus.CONFLICT, "idempotency_request_in_progress");
     }
 
     @ExceptionHandler(RefreshIntentRequiredException.class)
