@@ -75,11 +75,9 @@ jobs:
           npm --prefix frontend ci --silent
           npm --prefix frontend run check
           npm --prefix frontend run build
-      - name: Remove temporary trigger and workflow
+      - name: Remove temporary trigger
         if: steps.guard.outputs.required == 'true'
-        run: |
-          rm -f .lockfile-generation-trigger
-          rm .github/workflows/generate-frontend-lockfile.yml
+        run: rm -f .lockfile-generation-trigger
       - name: Commit generated lockfile
         if: steps.guard.outputs.required == 'true'
         run: |
