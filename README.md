@@ -51,6 +51,8 @@ La estructura crecerá por capacidades validadas, no por carpetas especulativas.
 - npm 10+
 - Docker con Compose
 
+Docker debe estar operativo para ejecutar la prueba de integración PostgreSQL/Testcontainers incluida en `mvn verify`.
+
 ## Inicio local
 
 ```bash
@@ -96,7 +98,7 @@ PowerShell:
 ./scripts/validate.ps1
 ```
 
-Los tests de integración PostgreSQL usan Testcontainers y se omiten automáticamente cuando Docker no está disponible.
+`mvn verify` ejecuta tests unitarios, reglas ArchUnit y el test de integración que levanta PostgreSQL 16 con Testcontainers, aplica Flyway y consulta el endpoint `/actuator/health`.
 
 ## Límites
 
