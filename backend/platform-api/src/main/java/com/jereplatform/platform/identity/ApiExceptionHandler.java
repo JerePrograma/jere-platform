@@ -1,5 +1,7 @@
 package com.jereplatform.platform.identity;
 
+import com.jereplatform.commercial.parties.api.PartyInactiveException;
+import com.jereplatform.commercial.parties.api.PartyReferenceNotFoundException;
 import com.jereplatform.kernel.authorization.api.AuthorizationDeniedException;
 import com.jereplatform.kernel.identity.api.AuthenticationFailureException;
 import com.jereplatform.kernel.reliability.api.IdempotencyConflictException;
@@ -32,6 +34,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IdempotencyInProgressException.class)
     ResponseEntity<Map<String, String>> idempotencyInProgress() {
         return response(HttpStatus.CONFLICT, "idempotency_request_in_progress");
+    }
+
+    @ExceptionHandler(PartyReferenceNotFoundException.class)
+    ResponseEntity<Map<String, String>> partyReferenceNotFound() {
+        return response(HttpStatus.NOT_FOUND, "party_reference_not_found");
+    }
+
+    @ExceptionHandler(PartyInactiveException.class)
+    ResponseEntity<Map<String, String>> partyInactive() {
+        return response(HttpStatus.CONFLICT, "party_reference_inactive");
     }
 
     @ExceptionHandler(RefreshIntentRequiredException.class)
