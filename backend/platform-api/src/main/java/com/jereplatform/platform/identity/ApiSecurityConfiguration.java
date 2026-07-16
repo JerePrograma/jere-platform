@@ -3,6 +3,7 @@ package com.jereplatform.platform.identity;
 import com.jereplatform.kernel.identity.application.SessionValidationService;
 import com.jereplatform.kernel.tenancy.application.TenantAccessService;
 import com.jereplatform.platform.tenancy.TenantContextFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,24 @@ public class ApiSecurityConfiguration {
     @Bean
     TenantContextFilter tenantContextFilter(TenantAccessService tenantAccessService) {
         return new TenantContextFilter(tenantAccessService);
+    }
+
+    @Bean
+    FilterRegistrationBean<AccessTokenAuthenticationFilter> disableAccessTokenServletRegistration(
+        AccessTokenAuthenticationFilter filter
+    ) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    FilterRegistrationBean<TenantContextFilter> disableTenantContextServletRegistration(
+        TenantContextFilter filter
+    ) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
