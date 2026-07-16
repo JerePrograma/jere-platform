@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -26,11 +27,15 @@ public class PartyReferenceStore {
     }
 
     public void lockSourceKey(UUID tenantId, String sourceType, String sourceId) {
-        jdbcTemplate.queryForObject(
-            "select pg_advisory_xact_lock(hashtextextended(?, 0))",
-            Long.class,
-            tenantId + ":" + sourceType + ":" + sourceId
-        );
+        jdbcTemplate.execute((ConnectionCallback<Void>) connection -> {
+            try (var statement = connection.prepareStatement(
+                "select pg_advisory_xact_lock(hashtextextended(?, 0))"
+            )) {
+                statement.setString(1, tenantId + ":" + sourceType + ":" + sourceId);
+                statement.execute();
+                return null;
+            }
+        });
     }
 
     public Optional<PartyReferenceView> findBySourceKey(
