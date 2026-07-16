@@ -14,6 +14,7 @@ import com.jereplatform.kernel.tenancy.api.TenantId;
 import com.jereplatform.kernel.tenancy.application.TenantAccessService;
 import com.jereplatform.kernel.tenancy.application.TenantProvisioningService;
 import com.jereplatform.platform.tenancy.TenantContextFilter;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -171,9 +172,10 @@ class AuthorizationIntegrationIT {
             .isEqualTo(HttpStatus.FORBIDDEN);
         var snapshot = authorizationSnapshot(token);
         assertThat(snapshot.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat((Map<?, ?>) snapshot.getBody().get("featureFlags"))
+        assertThat(snapshot.getBody()).isNotNull();
+        assertThat(booleanMapValue(snapshot.getBody(), "featureFlags"))
             .containsEntry("academy.new-attendance-ui", true);
-        assertThat((java.util.List<?>) snapshot.getBody().get("entitlements"))
+        assertThat(stringListValue(snapshot.getBody(), "entitlements"))
             .doesNotContain("academy");
     }
 
@@ -349,6 +351,16 @@ class AuthorizationIntegrationIT {
             new HttpEntity<>(null, headers),
             Map.class
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Boolean> booleanMapValue(Map<?, ?> body, String key) {
+        return (Map<String, Boolean>) body.get(key);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> stringListValue(Map<?, ?> body, String key) {
+        return (List<String>) body.get(key);
     }
 
     private static String unique(String prefix) {
