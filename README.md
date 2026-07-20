@@ -102,6 +102,13 @@ PowerShell:
 
 `mvn verify` ejecuta tests unitarios, reglas ArchUnit y el test de integración que levanta PostgreSQL 16 con Testcontainers, aplica Flyway y consulta el endpoint `/actuator/health`.
 
+Estado y continuidad:
+
+- [estado actual](docs/current-state.md);
+- [mapa de dominios](docs/domain-map.md);
+- [roadmap](docs/roadmap/00-foundation.md);
+- [handoff y ledger](docs/project-status-and-handoff.md).
+
 ## Límites
 
 1. El módulo `kernel` no depende del núcleo comercial ni de verticales.
