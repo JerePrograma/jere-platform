@@ -7,12 +7,11 @@
 | Date | 2026-07-20 |
 | Main SHA at mission start | `6a226b9f3024a210bf118beafc83dfea9789f9b0` |
 | Main CI at mission start | run `29753154369`, PASS |
-| Active branch | `integration/gestudio-student-source-export-v1` |
-| Active issues | #51 emitter integration; #59 safe multipage snapshots |
-| Active PR | #60, draft |
-| Validated implementation head | `bebfe716780a1ea42cc65be6441af9cc5dfe5bae` |
-| Published provenance head | `bcaeefa98626ce9369ab4598aa98c6a45f15f0b8` |
-| Coordinated source | Gestudio issue #14, branch `feature/signed-student-source-export-v1`, commit `4c88635e76d7814b91e1a8baacf7a9db3a8ca81d` |
+| Receiver merge base on main | `22b1d2bd02d2a7b3d3dd415b26f56761285611a2` |
+| Documentation follow-up branch | `agent/record-gestudio-receiver-merge` |
+| Active issue | #51 coordinated integration and remaining deployment/Scalaris work |
+| Delivered receiver | PR #60, head `41d18faf5a2606f39570a36769b66671ed304885`, CI `29765655168`, merge `22b1d2bd02d2a7b3d3dd415b26f56761285611a2` |
+| Coordinated source | Gestudio issue #14 / PR #15, head `0650d18599da173a3443f73e979f2842ab1357ea`, CI `29767996880` and `29767996913`, merge `e1afec960ddeb72d61932a1eb1f4a83a65899540` |
 
 This file records verified continuation data. `main` and GitHub remain authoritative if any pending field becomes stale.
 
@@ -50,6 +49,8 @@ This file records verified continuation data. `main` and GitHub remain authorita
 | Cross-repository smoke | PASS | runtime Gestudio old/new artifacts consumed; sanitized report in `backend/target` |
 | Rotation retirement unit | PASS | previous accepted during overlap and rejected after removal |
 | Branch full backend/frontend | PASS | Maven verify; npm ci, check and build |
+| PR #60 exact-head CI | PASS | run `29765655168` at `41d18faf`; backend, frontend, secrets and GitGuardian |
+| Gestudio PR #15 exact-head CI | PASS | runs `29767996880` and `29767996913` at `0650d185`; validate, images, canonical smoke, local smoke, demo seed and GitGuardian |
 
 ## Durable decisions
 
@@ -78,13 +79,13 @@ This file records verified continuation data. `main` and GitHub remain authorita
 | Validation hardening | #52 | #53 | `6b89b54d` | `29749033054` | `ff15b708` | PowerShell failure propagation | COMPLETE |
 | Status reconciliation | #54 | #55 | `0e1e45c` | `29749717131` | `f46ccda7` | State, domain map, roadmap and handoff | COMPLETE |
 | M2.3a | #56 | #57 | `eff0418` | `29752419502` | `53972cc2` | Signed party-source artifact ingestion | COMPLETE |
-| M2.3a hardening | #59 | #60 | `bcaeefa` | Pending | Pending | Safe multipage snapshot progress | CI IN PROGRESS |
-| M2.3b | #51 / Gestudio #14 | Gestudio #15 | `4c88635e` | Pending | Pending | Gestudio source emitter | VALIDATED LOCALLY |
+| M2.3a hardening | #59 | #60 | `41d18faf` | `29765655168` | `22b1d2bd` | Safe multipage snapshot progress | COMPLETE |
+| M2.3b | #51 / Gestudio #14 | Gestudio #15 | `0650d185` | `29767996880` / `29767996913` | `e1afec96` | Gestudio source emitter | COMPLETE, PENDING DEPLOYMENT |
 
 ## Risks and blockers
 
 1. Public visibility blocks proprietary vertical implementation under ADR 0002.
-2. Issue #51 requires coordinated merge and deployment work; this repository
+2. Issue #51 still tracks deployment evidence and Scalaris; this repository
    contains only synthetic fixtures and must not copy profiles or connect to source databases.
 3. Docker is mandatory for local integration evidence.
 4. Host `java`/Maven JDK resolution differs; Maven's Java 21 result is authoritative for repository validation.
@@ -92,11 +93,9 @@ This file records verified continuation data. `main` and GitHub remain authorita
 
 ## Next action
 
-1. Finish exact-head CI for platform PR #60 and Gestudio PR #15.
-2. Keep #51 open after Gestudio if its checklist still includes Scalaris or
-   production operation.
-3. Add Scalaris independently only after its tenant mapping is explicit.
-4. Treat the integration as PENDING DEPLOYMENT after merge; local evidence is not
+1. Keep #51 open for production operation evidence and the independent Scalaris source.
+2. Add Scalaris independently only after its tenant mapping is explicit.
+3. Treat the Gestudio integration as PENDING DEPLOYMENT; local and CI evidence is not
    production evidence.
 
 ## Recovery
