@@ -9,8 +9,9 @@
 | Main CI at mission start | run `29753154369`, PASS |
 | Active branch | `integration/gestudio-student-source-export-v1` |
 | Active issues | #51 emitter integration; #59 safe multipage snapshots |
-| Active PR | pending |
-| Active head | pending commit |
+| Active PR | #60, draft |
+| Validated implementation head | `bebfe716780a1ea42cc65be6441af9cc5dfe5bae` |
+| Published provenance head | `bcaeefa98626ce9369ab4598aa98c6a45f15f0b8` |
 | Coordinated source | Gestudio issue #14, branch `feature/signed-student-source-export-v1`, commit `4c88635e76d7814b91e1a8baacf7a9db3a8ca81d` |
 
 This file records verified continuation data. `main` and GitHub remain authoritative if any pending field becomes stale.
@@ -77,8 +78,8 @@ This file records verified continuation data. `main` and GitHub remain authorita
 | Validation hardening | #52 | #53 | `6b89b54d` | `29749033054` | `ff15b708` | PowerShell failure propagation | COMPLETE |
 | Status reconciliation | #54 | #55 | `0e1e45c` | `29749717131` | `f46ccda7` | State, domain map, roadmap and handoff | COMPLETE |
 | M2.3a | #56 | #57 | `eff0418` | `29752419502` | `53972cc2` | Signed party-source artifact ingestion | COMPLETE |
-| M2.3a hardening | #59 | Pending | Pending | Pending | Pending | Safe multipage snapshot progress | IN PROGRESS |
-| M2.3b | #51 / Gestudio #14 | Pending | Pending | Pending | Pending | Gestudio source emitter | VALIDATED LOCALLY |
+| M2.3a hardening | #59 | #60 | `bcaeefa` | Pending | Pending | Safe multipage snapshot progress | CI IN PROGRESS |
+| M2.3b | #51 / Gestudio #14 | Gestudio #15 | `4c88635e` | Pending | Pending | Gestudio source emitter | VALIDATED LOCALLY |
 
 ## Risks and blockers
 
@@ -91,7 +92,7 @@ This file records verified continuation data. `main` and GitHub remain authorita
 
 ## Next action
 
-1. Finish the cross-repository smoke and exact-head CI for platform and Gestudio.
+1. Finish exact-head CI for platform PR #60 and Gestudio PR #15.
 2. Keep #51 open after Gestudio if its checklist still includes Scalaris or
    production operation.
 3. Add Scalaris independently only after its tenant mapping is explicit.
