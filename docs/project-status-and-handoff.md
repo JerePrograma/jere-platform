@@ -11,7 +11,7 @@
 | Active issues | #51 emitter integration; #59 safe multipage snapshots |
 | Active PR | pending |
 | Active head | pending commit |
-| Coordinated source | Gestudio issue #14, branch `feature/signed-student-source-export-v1` |
+| Coordinated source | Gestudio issue #14, branch `feature/signed-student-source-export-v1`, commit `4c88635e76d7814b91e1a8baacf7a9db3a8ca81d` |
 
 This file records verified continuation data. `main` and GitHub remain authoritative if any pending field becomes stale.
 
