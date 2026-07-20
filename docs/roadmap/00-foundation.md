@@ -4,6 +4,12 @@
 
 Create an executable, testable platform skeleton with enforceable module boundaries before migrating product behavior.
 
+## Verified status
+
+Phase 0 and the shared Phase 1 kernel are complete on `main` at `ff15b7081fc66ec13d645c91238c4b9f6d37c703`. Main CI run `29749213799` passed on 2026-07-20.
+
+This roadmap records executable gates. A documented context is not an implemented capability.
+
 ## Exit criteria
 
 Phase 0 is complete when:
@@ -90,10 +96,8 @@ Acceptance:
 - a deliberately forbidden dependency fails tests;
 - the rule is visible in CI output.
 
-## Deferred until Phase 1
+## Not part of Phase 0
 
-- complete authentication;
-- production RBAC;
 - subscription billing;
 - product migrations;
 - external messaging providers;
@@ -101,15 +105,44 @@ Acceptance:
 - Kubernetes;
 - generic workflow engines.
 
-## Phase 1 preview
+## Phase 1 — shared platform kernel
 
-Phase 1 establishes the kernel:
+Completed through PRs #38-#41:
 
-1. tenant and organization lifecycle;
-2. identity and session lifecycle;
-3. roles, permissions and scopes;
-4. entitlements and module activation;
-5. audit trail;
-6. transactional outbox.
+- tenant, organization, branch and membership lifecycle;
+- identity, credential and revocable session lifecycle;
+- tenant-scoped roles, permissions, entitlements and feature flags;
+- append-only audit, reliable commands and transactional outbox.
 
-No commercial-core migration should begin until tenant and authorization boundaries are enforceable.
+Exit evidence: PostgreSQL tenant-boundary and authorization tests, authentication lifecycle tests, reliability concurrency/recovery tests and ADRs 0003-0006.
+
+## Milestone 2 — evidence-based commercial boundary
+
+| Increment | State | Evidence |
+|---|---|---|
+| M2.1 compare Gestudio and inventarios-muebleria | COMPLETE | issue #28, PR #42, ADR 0007 |
+| M2.2 tenant Party Reference Directory | COMPLETE | issue #43, PR #44, ADR 0008, Flyway V7 |
+| M2.3 production source export adapters | NEXT | issue #51 |
+
+M2.3 must remain a reference-only integration. It may import stable source ID, display name and active state with cursor metadata. It may not connect directly to source databases or copy email, document, address, guardian, tax or commercial-profile fields.
+
+## Later milestones
+
+These are ordered gates, not simultaneous workstreams:
+
+1. Complete and operate M2.3 source adapters.
+2. Prove one tenant-scoped CRM/contact flow only if product evidence requires more than Party References.
+3. Prove catalog/pricing compatibility in two current products before shared persistence.
+4. Add a complete quote or inventory vertical slice with authorization, tenancy, audit and tests.
+5. Revisit financial extraction only after every ADR 0007 integrity gate has two current implementations.
+6. Add documents/notifications through the outbox when a real vertical needs them.
+7. Add SaaS subscriptions only after product packaging and billing ownership are decided.
+
+## Cross-cutting gates
+
+- Keep the repository free of secrets, real data and proprietary customer logic.
+- Preserve shared-database tenant isolation and negative cross-tenant tests.
+- Use forward-only Flyway migrations.
+- Keep backend and frontend contracts synchronized.
+- Require local supported validation and CI success for the exact head SHA.
+- Do not extract a service until ADR 0001 prerequisites are demonstrated.

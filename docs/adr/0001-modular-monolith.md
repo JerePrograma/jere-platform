@@ -48,6 +48,18 @@ A module may become an independent service only when several of these are demons
 - clear data ownership;
 - sufficient operational monitoring and support.
 
+Potential candidates, not commitments, include identity, notifications, documents, automation, integrations, search, reporting and SaaS billing. They remain modules until evidence exists.
+
+Before extraction, the proposal must define:
+
+- a stable versioned contract and owner;
+- exclusive data ownership and a migration plan;
+- authentication, authorization and tenant propagation;
+- idempotency, retry and failure-isolation semantics;
+- logs, metrics, tracing and incident ownership;
+- deployment, rollback and contract tests;
+- measured operational benefit that justifies the added cost.
+
 ## Rejected alternatives
 
 ### Microservices from the start
