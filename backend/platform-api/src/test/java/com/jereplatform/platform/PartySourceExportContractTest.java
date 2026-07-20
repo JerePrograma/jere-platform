@@ -13,12 +13,23 @@ import org.junit.jupiter.api.Test;
 
 class PartySourceExportContractTest {
 
-    private static final Set<String> ROOT_FIELDS = Set.of(
+    private static final Set<String> REQUIRED_ROOT_FIELDS = Set.of(
         "contractVersion",
         "tenantId",
         "sourceType",
         "checkpoint",
         "nextCursor",
+        "fullSnapshot",
+        "records"
+    );
+    private static final Set<String> ALLOWED_ROOT_FIELDS = Set.of(
+        "contractVersion",
+        "tenantId",
+        "sourceType",
+        "checkpoint",
+        "nextCursor",
+        "pageNumber",
+        "pageCount",
         "fullSnapshot",
         "records"
     );
@@ -38,7 +49,7 @@ class PartySourceExportContractTest {
 
         assertThat(schema.path("additionalProperties").booleanValue()).isFalse();
         assertThat(fieldNames(schema.path("properties"))).containsExactlyInAnyOrderElementsOf(
-            ROOT_FIELDS);
+            ALLOWED_ROOT_FIELDS);
         var recordSchema = schema.path("properties").path("records").path("items");
         assertThat(recordSchema.path("additionalProperties").booleanValue()).isFalse();
         assertThat(fieldNames(recordSchema.path("properties")))
@@ -46,6 +57,10 @@ class PartySourceExportContractTest {
         assertThat(schema.path("properties").path("contractVersion").path("const").intValue())
             .isEqualTo(1);
         assertThat(schema.path("properties").path("records").path("maxItems").intValue())
+            .isEqualTo(1_000);
+        assertThat(schema.path("properties").path("pageNumber").path("maximum").intValue())
+            .isEqualTo(1_000);
+        assertThat(schema.path("properties").path("pageCount").path("maximum").intValue())
             .isEqualTo(1_000);
         assertThat(schema.path("allOf").path(0).path("then")
             .path("properties").path("nextCursor").path("type").textValue())
@@ -56,6 +71,14 @@ class PartySourceExportContractTest {
             "GESTUDIO_STUDENT"
         );
         assertFixture(
+            root.resolve("contracts/parties/fixtures/gestudio-emitter-v1/page-001.json"),
+            "GESTUDIO_STUDENT"
+        );
+        assertFixture(
+            root.resolve("contracts/parties/fixtures/gestudio-emitter-v1/page-002.json"),
+            "GESTUDIO_STUDENT"
+        );
+        assertFixture(
             root.resolve("contracts/parties/fixtures/scalaris-third-parties-v1.json"),
             "SCALARIS_THIRD_PARTY"
         );
@@ -63,7 +86,8 @@ class PartySourceExportContractTest {
 
     private void assertFixture(Path path, String expectedSourceType) throws Exception {
         var fixture = objectMapper.readTree(Files.readString(path));
-        assertThat(fieldNames(fixture)).containsExactlyInAnyOrderElementsOf(ROOT_FIELDS);
+        assertThat(fieldNames(fixture)).containsAll(REQUIRED_ROOT_FIELDS);
+        assertThat(ALLOWED_ROOT_FIELDS).containsAll(fieldNames(fixture));
         assertThat(fixture.path("contractVersion").intValue()).isEqualTo(1);
         assertThat(fixture.path("sourceType").textValue()).isEqualTo(expectedSourceType);
         assertThatCode(() -> UUID.fromString(fixture.path("tenantId").textValue()))

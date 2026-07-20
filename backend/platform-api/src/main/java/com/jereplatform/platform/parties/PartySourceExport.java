@@ -9,9 +9,33 @@ public record PartySourceExport(
     String sourceType,
     String checkpoint,
     String nextCursor,
+    Integer pageNumber,
+    Integer pageCount,
     boolean fullSnapshot,
     List<SourceRecord> records
 ) {
+
+    public PartySourceExport(
+        int contractVersion,
+        UUID tenantId,
+        String sourceType,
+        String checkpoint,
+        String nextCursor,
+        boolean fullSnapshot,
+        List<SourceRecord> records
+    ) {
+        this(
+            contractVersion,
+            tenantId,
+            sourceType,
+            checkpoint,
+            nextCursor,
+            null,
+            null,
+            fullSnapshot,
+            records
+        );
+    }
 
     public PartySourceExport {
         if (records != null) {

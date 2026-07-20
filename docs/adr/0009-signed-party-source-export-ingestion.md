@@ -4,6 +4,10 @@
 - Date: 2026-07-20
 - Tracking: #51, #56
 
+ADR 0010 supersedes the paging-progress and persistence details of decisions 12
+and 14 for producers that publish explicit page metadata. Legacy v1 artifacts
+remain accepted.
+
 ## Context
 
 ADR 0008 deliberately kept student and commercial-party profiles in their source
@@ -39,8 +43,9 @@ repositories. This decision defines the platform-owned receiving boundary first.
     checkpoint and next cursor identify a page; a changed retry returns `409`.
 13. Page records are sorted before acquiring source-key locks. Mapping changes,
     audit rows, outbox events and the idempotent response commit atomically.
-14. The existing idempotency ledger retains accepted export responses for 365 days;
-    no separate checkpoint table is introduced for this increment.
+14. The existing idempotency ledger retains accepted export responses for 365 days.
+    ADR 0010 adds bounded snapshot-progress tables because the final page must
+    reconcile against source IDs accepted on every earlier page.
 15. Metrics count read, rejected, imported, unchanged, replayed and conflicted
     records by approved source type. Secrets and record payloads are never metric
     tags or log fields.
@@ -55,7 +60,8 @@ repositories. This decision defines the platform-owned receiving boundary first.
 - Complete-snapshot drift requires an operator decision instead of destructive
   synchronization.
 - Issue #51 remains incomplete until source-owned emitters produce this contract.
-- No Flyway migration or new dependency is required.
+- The original receiver required no Flyway migration. ADR 0010 adds a forward-only
+  migration without a new runtime dependency.
 
 ## Recovery
 

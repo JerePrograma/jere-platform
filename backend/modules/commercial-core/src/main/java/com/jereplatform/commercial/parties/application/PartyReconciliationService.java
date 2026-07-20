@@ -31,7 +31,7 @@ public class PartyReconciliationService {
         TenantContext context,
         List<PartySourceCandidate> candidates
     ) {
-        return analyze(context, candidates, null);
+        return analyze(context, candidates, null, null);
     }
 
     public PartyReconciliationReport analyzeCompleteSnapshot(
@@ -41,13 +41,28 @@ public class PartyReconciliationService {
     ) {
         var approvedType = PartySourceType.fromCode(sourceType)
             .orElseThrow(() -> new IllegalArgumentException("Unknown party source type"));
-        return analyze(context, candidates, approvedType);
+        return analyze(context, candidates, approvedType, null);
+    }
+
+    public PartyReconciliationReport analyzeCompleteSnapshot(
+        TenantContext context,
+        String sourceType,
+        List<PartySourceCandidate> candidates,
+        Set<String> completeSourceIds
+    ) {
+        var approvedType = PartySourceType.fromCode(sourceType)
+            .orElseThrow(() -> new IllegalArgumentException("Unknown party source type"));
+        if (completeSourceIds == null) {
+            throw new IllegalArgumentException("completeSourceIds must not be null");
+        }
+        return analyze(context, candidates, approvedType, Set.copyOf(completeSourceIds));
     }
 
     private PartyReconciliationReport analyze(
         TenantContext context,
         List<PartySourceCandidate> candidates,
-        PartySourceType completeSnapshotType
+        PartySourceType completeSnapshotType,
+        Set<String> completeSourceIds
     ) {
         if (candidates == null || candidates.size() > 10_000) {
             throw new IllegalArgumentException("candidates must contain at most 10000 records");
@@ -115,12 +130,15 @@ public class PartyReconciliationService {
         }
 
         if (completeSnapshotType != null) {
-            var presentSourceIds = new HashSet<String>();
-            for (var candidate : normalized) {
-                var key = candidate.sourceType() + "|" + candidate.sourceId();
-                if (candidate.sourceType().equals(completeSnapshotType.name())
-                    && !duplicated.contains(key)) {
-                    presentSourceIds.add(candidate.sourceId());
+            Set<String> presentSourceIds = completeSourceIds;
+            if (presentSourceIds == null) {
+                presentSourceIds = new HashSet<>();
+                for (var candidate : normalized) {
+                    var key = candidate.sourceType() + "|" + candidate.sourceId();
+                    if (candidate.sourceType().equals(completeSnapshotType.name())
+                        && !duplicated.contains(key)) {
+                        presentSourceIds.add(candidate.sourceId());
+                    }
                 }
             }
             for (var sourceId : store.findSourceIds(

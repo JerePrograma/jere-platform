@@ -7,11 +7,11 @@
 | Date | 2026-07-20 |
 | Repository | `JerePrograma/jere-platform` |
 | Default branch | `main` |
-| Main commit | `53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8` |
-| Main CI | run `29752682676`, successful |
+| Main commit at mission start | `6a226b9f3024a210bf118beafc83dfea9789f9b0` |
+| Main CI at mission start | run `29753154369`, successful |
 | Visibility | Public |
 | License | Proprietary, all rights reserved |
-| Database baseline | PostgreSQL 16, Flyway V1-V7 |
+| Database baseline on this branch | PostgreSQL 16, Flyway V1-V8 |
 
 The repository is an executable foundation runtime. It is not deployed evidence, a production release, or a replacement for any source product.
 
@@ -36,7 +36,7 @@ The repository is an executable foundation runtime. It is not deployed evidence,
 | Authorization and entitlements | IMPLEMENTED | V4; 19-code JSON/Java/TypeScript contract | No management UI; vertical permissions are catalog entries only |
 | Audit, idempotency and outbox | IMPLEMENTED | V5-V6; append-only audit and PostgreSQL worker model | No external dispatcher or production operations integration |
 | Party Reference Directory | IMPLEMENTED | V7, API, reliable imports, reconciliation, audit/outbox | Production source export adapters are issue #51 |
-| Source export integration | PARTIAL | signed v1 schema, HMAC rotation, tenant binding, dry-run, atomic import and metrics | Source-owned emitters remain issue #51 |
+| Source export integration | PARTIAL | signed v1 schema, HMAC rotation, tenant binding, safe multipage progress, dry-run, atomic import and metrics | Gestudio emitter is validated locally but not deployed; Scalaris is blocked |
 | Vertical domains | PLACEHOLDER | `VerticalsModule` marker only | No academy, commerce, appointments or logistics use case |
 | Platform shell | PARTIAL | Accessible static React shell builds | No authentication, tenant switcher, routing or API flow |
 | Shared UI | PARTIAL | One card component and formatter with tests | Not a design system yet |
@@ -62,7 +62,7 @@ The API currently exposes:
 
 Controllers remain in `platform-api`. Application and persistence behavior is owned by `kernel` or `commercial-core`. No module shares a JPA entity or imports another module's internal packages.
 
-Flyway ownership at V7:
+Flyway ownership through V8:
 
 | Migration | Owner | Capability |
 |---|---|---|
@@ -72,6 +72,7 @@ Flyway ownership at V7:
 | V4 | kernel/authorization | Permission catalog, roles, assignments, entitlements and flags |
 | V5-V6 | kernel/reliability | Audit, idempotency and transactional outbox |
 | V7 | commercial-core/parties | Tenant party references and managed-role permission advance |
+| V8 | commercial-core/parties | Multipage source-snapshot hashes and source-ID progress |
 
 ## Frontend inventory
 
@@ -93,10 +94,11 @@ On 2026-07-20, with Docker Desktop available:
 
 | Command | Result | Evidence |
 |---|---|---|
-| `mvn -B -f backend/pom.xml verify` | PASS | 10 contract/architecture tests and 43 PostgreSQL integration tests; Flyway V1-V7 |
+| `mvn -B -f backend/pom.xml verify` | PASS | 11 unit/contract tests and 46 integration tests; Flyway V1-V8 |
 | `npm --prefix frontend ci` | PASS | 212 locked packages installed |
 | `npm --prefix frontend run check` | PASS | 19 permission codes, lint, typecheck and 9 tests |
 | `npm --prefix frontend run build` | PASS | platform shell and shared UI built |
+| `scripts/smoke-gestudio-source-export.ps1` | PASS | exact Gestudio old/new artifacts; signature, replay, reconciliation, tenant rejection, rotation, audit, outbox and metrics |
 | `scripts/validate.ps1` failure regression | PASS | simulated Maven exit 17 returned 17 and did not invoke npm |
 | PR #57 CI at `eff0418` | PASS | GitHub Actions run `29752419502`; backend, frontend, Gitleaks and GitGuardian |
 | Main CI at `53972cc` | PASS | GitHub Actions run `29752682676` |
@@ -104,9 +106,10 @@ On 2026-07-20, with Docker Desktop available:
 ## Risks and blockers
 
 1. The repository is public. ADR 0002 prohibits sensitive vertical logic, customer data and regulated implementations until visibility or public/private boundaries change.
-2. Issue #51 still requires source-owned emitters. The platform-side signed artifact
-   receiver is implemented, but Jere Platform must never connect directly to source
-   databases.
+2. Issue #51 remains open. A source-owned Gestudio emitter is under coordinated
+   review and has local cross-repository evidence; no production deployment exists.
+   Scalaris remains blocked until its tenant mapping is explicit. Jere Platform
+   must never connect directly to either source database.
 3. The global `java` executable on the audited Windows host resolves to Java 8 while Maven resolves Java 21. Repository validation is green, but direct Java commands require PATH awareness.
 4. Local integration validation requires Docker. Docker absence is an environment failure and must never be reported as a passed backend gate.
 5. Open Dependabot PRs #46-#48 fail frontend checks and must not be merged without compatibility work. They do not make current `main` red.
@@ -115,5 +118,5 @@ On 2026-07-20, with Docker Desktop available:
 
 There are no microservices, broker, Kubernetes manifests, production deployment,
 customer migration, financial shared module, vertical UI, background notification
-provider or source-owned export emitter. The platform receiver alone is not an
-operational end-to-end source integration.
+provider or deployed source-owned export emitter. Local cross-repository validation
+is not operational or production evidence.

@@ -7,10 +7,14 @@ import com.jereplatform.commercial.parties.api.PartySourceCandidate;
 import com.jereplatform.commercial.parties.api.PartySourceRecord;
 import com.jereplatform.commercial.parties.application.PartyReconciliationService;
 import com.jereplatform.commercial.parties.application.PartyReferenceService;
+import com.jereplatform.commercial.parties.application.PartySourceSnapshotService;
 import com.jereplatform.kernel.reliability.api.IdempotencyConflictException;
 import com.jereplatform.kernel.reliability.api.IdempotencyInProgressException;
 import com.jereplatform.kernel.tenancy.api.TenantContext;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
@@ -21,17 +25,20 @@ class PartySourceExportService {
     private final SignedPartySourceExportReader reader;
     private final PartyReconciliationService reconciliationService;
     private final PartyReferenceService partyReferenceService;
+    private final PartySourceSnapshotService snapshotService;
     private final MeterRegistry meterRegistry;
 
     PartySourceExportService(
         SignedPartySourceExportReader reader,
         PartyReconciliationService reconciliationService,
         PartyReferenceService partyReferenceService,
+        PartySourceSnapshotService snapshotService,
         MeterRegistry meterRegistry
     ) {
         this.reader = reader;
         this.reconciliationService = reconciliationService;
         this.partyReferenceService = partyReferenceService;
+        this.snapshotService = snapshotService;
         this.meterRegistry = meterRegistry;
     }
 
@@ -51,14 +58,30 @@ class PartySourceExportService {
 
         increment(export.sourceType(), "read", export.records().size());
         var candidates = candidates(export);
+        var payloadHash = sha256(body);
+        var inspection = snapshotService.inspect(
+            context,
+            export.sourceType(),
+            export.checkpoint(),
+            export.pageNumber(),
+            export.pageCount(),
+            payloadHash,
+            export.records().stream().map(PartySourceExport.SourceRecord::sourceId).toList()
+        );
         var report = export.fullSnapshot()
-            ? reconciliationService.analyzeCompleteSnapshot(
-                context, export.sourceType(), candidates)
+            ? (export.pageNumber() == null
+                ? reconciliationService.analyzeCompleteSnapshot(
+                    context, export.sourceType(), candidates)
+                : reconciliationService.analyzeCompleteSnapshot(
+                    context,
+                    export.sourceType(),
+                    candidates,
+                    inspection.completeSourceIds()))
             : reconciliationService.analyze(context, candidates);
         if (report.hasBlockingFindings()) {
             increment(export.sourceType(), "rejected", report.findings().size());
         }
-        return new AnalyzedExport(export, report);
+        return new AnalyzedExport(export, report, payloadHash);
     }
 
     ImportOutcome importExport(
@@ -78,6 +101,9 @@ class PartySourceExportService {
                 analyzed.export().sourceType(),
                 analyzed.export().checkpoint(),
                 analyzed.export().nextCursor(),
+                analyzed.export().pageNumber(),
+                analyzed.export().pageCount(),
+                analyzed.export().pageNumber() == null ? null : analyzed.payloadHash(),
                 analyzed.export().fullSnapshot(),
                 analyzed.export().records().stream().map(record -> new PartySourceRecord(
                     analyzed.export().sourceType(),
@@ -143,7 +169,19 @@ class PartySourceExportService {
         return normalized.length() > 40 ? "UNKNOWN" : normalized;
     }
 
-    record AnalyzedExport(PartySourceExport export, PartyReconciliationReport report) {
+    private static String sha256(byte[] body) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    record AnalyzedExport(
+        PartySourceExport export,
+        PartyReconciliationReport report,
+        String payloadHash
+    ) {
     }
 
     record ImportOutcome(

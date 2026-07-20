@@ -124,12 +124,14 @@ Exit evidence: PostgreSQL tenant-boundary and authorization tests, authenticatio
 |---|---|---|
 | M2.1 compare Gestudio and inventarios-muebleria | COMPLETE | issue #28, PR #42, ADR 0007 |
 | M2.2 tenant Party Reference Directory | COMPLETE | issue #43, PR #44, ADR 0008, Flyway V7 |
-| M2.3a signed artifact ingestion | IMPLEMENTED | issue #56, ADR 0009, v1 schema and integration tests |
-| M2.3b source-owned export emitters | NEXT | issue #51; coordinated Gestudio and Scalaris changes |
+| M2.3a signed artifact ingestion | IMPLEMENTED | issues #56/#59, ADRs 0009/0010, v1 schema, V8 and integration tests |
+| M2.3b Gestudio source-owned emitter | IN PROGRESS | platform #51, Gestudio #14; local cross-repository validation |
+| M2.3c Scalaris source-owned emitter | BLOCKED | explicit tenant mapping is not defined |
 
 M2.3 remains a reference-only integration. The platform can authenticate, dry-run
-and atomically ingest resumable artifacts, but issue #51 is not complete until the
-source products emit the v1 contract. No adapter may connect Jere Platform directly
+and atomically ingest resumable artifacts without false multipage absences. The
+Gestudio emitter is not complete until both PRs and their exact heads pass CI and
+merge. No adapter may connect Jere Platform directly
 to source databases or copy email, document, address, guardian, tax or
 commercial-profile fields.
 
@@ -137,13 +139,14 @@ commercial-profile fields.
 
 These are ordered gates, not simultaneous workstreams:
 
-1. Complete and operate the M2.3 source-owned export emitters.
-2. Prove one tenant-scoped CRM/contact flow only if product evidence requires more than Party References.
-3. Prove catalog/pricing compatibility in two current products before shared persistence.
-4. Add a complete quote or inventory vertical slice with authorization, tenancy, audit and tests.
-5. Revisit financial extraction only after every ADR 0007 integrity gate has two current implementations.
-6. Add documents/notifications through the outbox when a real vertical needs them.
-7. Add SaaS subscriptions only after product packaging and billing ownership are decided.
+1. Merge and operationally stage the Gestudio M2.3 emitter after green CI.
+2. Define Scalaris tenant mapping before starting its emitter.
+3. Prove one tenant-scoped CRM/contact flow only if product evidence requires more than Party References.
+4. Prove catalog/pricing compatibility in two current products before shared persistence.
+5. Add a complete quote or inventory vertical slice with authorization, tenancy, audit and tests.
+6. Revisit financial extraction only after every ADR 0007 integrity gate has two current implementations.
+7. Add documents/notifications through the outbox when a real vertical needs them.
+8. Add SaaS subscriptions only after product packaging and billing ownership are decided.
 
 ## Cross-cutting gates
 
