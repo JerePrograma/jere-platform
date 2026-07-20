@@ -7,8 +7,8 @@
 | Date | 2026-07-20 |
 | Repository | `JerePrograma/jere-platform` |
 | Default branch | `main` |
-| Main commit | `f46ccda7d00fc7bb207a67d40cb38d5c19f672be` |
-| Main CI | run `29749867354`, successful |
+| Main commit | `53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8` |
+| Main CI | run `29752682676`, successful |
 | Visibility | Public |
 | License | Proprietary, all rights reserved |
 | Database baseline | PostgreSQL 16, Flyway V1-V7 |
@@ -98,7 +98,8 @@ On 2026-07-20, with Docker Desktop available:
 | `npm --prefix frontend run check` | PASS | 19 permission codes, lint, typecheck and 9 tests |
 | `npm --prefix frontend run build` | PASS | platform shell and shared UI built |
 | `scripts/validate.ps1` failure regression | PASS | simulated Maven exit 17 returned 17 and did not invoke npm |
-| Main CI at `f46ccda` | PASS | GitHub Actions run `29749867354` |
+| PR #57 CI at `eff0418` | PASS | GitHub Actions run `29752419502`; backend, frontend, Gitleaks and GitGuardian |
+| Main CI at `53972cc` | PASS | GitHub Actions run `29752682676` |
 
 ## Risks and blockers
 
