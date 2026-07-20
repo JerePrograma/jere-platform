@@ -32,6 +32,16 @@
         {"type": "null"}
       ]
     },
+    "pageNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "pageCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
     "fullSnapshot": {"type": "boolean"},
     "records": {
       "type": "array",
@@ -67,6 +77,14 @@
       "then": {
         "properties": {"nextCursor": {"type": "null"}}
       }
+    },
+    {
+      "if": {"required": ["pageNumber"]},
+      "then": {"required": ["pageCount"]}
+    },
+    {
+      "if": {"required": ["pageCount"]},
+      "then": {"required": ["pageNumber"]}
     }
   ]
 }

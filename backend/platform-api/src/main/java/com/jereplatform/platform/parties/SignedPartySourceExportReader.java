@@ -74,6 +74,7 @@ class SignedPartySourceExportReader {
         var nextCursor = parsed.nextCursor() == null
             ? null
             : requireText(parsed.nextCursor(), 500);
+        validatePaging(parsed.pageNumber(), parsed.pageCount(), nextCursor, parsed.fullSnapshot());
         if (parsed.fullSnapshot() && nextCursor != null) {
             throw new PartySourceExportException(INVALID_ARTIFACT);
         }
@@ -83,9 +84,32 @@ class SignedPartySourceExportReader {
             sourceType.name(),
             checkpoint,
             nextCursor,
+            parsed.pageNumber(),
+            parsed.pageCount(),
             parsed.fullSnapshot(),
             List.copyOf(parsed.records())
         );
+    }
+
+    private static void validatePaging(
+        Integer pageNumber,
+        Integer pageCount,
+        String nextCursor,
+        boolean fullSnapshot
+    ) {
+        if (pageNumber == null && pageCount == null) {
+            return;
+        }
+        if (pageNumber == null || pageCount == null
+            || pageNumber < 1 || pageCount < 1
+            || pageNumber > 1_000 || pageCount > 1_000
+            || pageNumber > pageCount) {
+            throw new PartySourceExportException(INVALID_ARTIFACT);
+        }
+        boolean finalPage = pageNumber.equals(pageCount);
+        if (finalPage != fullSnapshot || finalPage != (nextCursor == null)) {
+            throw new PartySourceExportException(INVALID_ARTIFACT);
+        }
     }
 
     private void verifySignature(PartySourceType sourceType, String signature, byte[] body) {

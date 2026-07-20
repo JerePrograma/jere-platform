@@ -5,13 +5,13 @@
 | Field | Value |
 |---|---|
 | Date | 2026-07-20 |
-| Main SHA | `53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8` |
-| Main CI | run `29752682676`, PASS |
-| Active branch | None after documentation closeout |
-| Active issue | None; #51 is the next coordinated product issue |
-| Active PR | None after documentation closeout |
-| Active head | `53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8` |
-| Next product increment | #51, source-owned v1 export emitters |
+| Main SHA at mission start | `6a226b9f3024a210bf118beafc83dfea9789f9b0` |
+| Main CI at mission start | run `29753154369`, PASS |
+| Active branch | `integration/gestudio-student-source-export-v1` |
+| Active issues | #51 emitter integration; #59 safe multipage snapshots |
+| Active PR | pending |
+| Active head | pending commit |
+| Coordinated source | Gestudio issue #14, branch `feature/signed-student-source-export-v1` |
 
 This file records verified continuation data. `main` and GitHub remain authoritative if any pending field becomes stale.
 
@@ -28,22 +28,27 @@ This file records verified continuation data. `main` and GitHub remain authorita
 
 ## Database and contracts
 
-- Flyway is forward-only through V7.
+- Flyway is forward-only through V8 on this branch.
 - Tenant-owned uniqueness and composite foreign keys include tenant ownership where applicable.
 - Canonical permission contract contains 19 codes.
 - Canonical party source types are `GESTUDIO_STUDENT` and `SCALARIS_THIRD_PARTY`.
-- Signed export v1 accepts only reference fields and uses reliable page replay.
+- Signed export v1 accepts only reference fields, uses reliable page replay and
+  proves completeness for producers with explicit page metadata.
 - No production customer data, secrets or source database connection is present.
 
 ## Current validation
 
 | Gate | Result | Evidence |
 |---|---|---|
-| Local backend | PASS | Maven verify: 10 contract/architecture tests and 43 integration tests |
+| Local backend | PASS | Maven verify: 11 unit/contract tests and 46 integration tests; Flyway V1-V8 |
 | Local frontend | PASS | permission contract, lint, typecheck, 9 tests and build |
 | PowerShell failure propagation | PASS | simulated exit 17 stopped before npm |
 | PR #57 CI | PASS | run `29752419502` at head `eff0418` |
 | Main post-merge CI | PASS | run `29752682676` at `53972cc` |
+| Multipage receiver focal | PASS | 13/13 PostgreSQL integration tests, Flyway V8 |
+| Cross-repository smoke | PASS | runtime Gestudio old/new artifacts consumed; sanitized report in `backend/target` |
+| Rotation retirement unit | PASS | previous accepted during overlap and rejected after removal |
+| Branch full backend/frontend | PASS | Maven verify; npm ci, check and build |
 
 ## Durable decisions
 
@@ -56,6 +61,8 @@ This file records verified continuation data. `main` and GitHub remain authorita
 - ADR 0007: commercial sharing requires current product evidence.
 - ADR 0008: vertical profiles stay owned by source products; only party references are shared.
 - ADR 0009: signed, tenant-bound artifacts are reconciled before atomic import.
+- ADR 0010: explicit page metadata and persisted source-ID progress prevent false
+  absences and incomplete full snapshots.
 
 ## Milestone ledger
 
@@ -70,25 +77,27 @@ This file records verified continuation data. `main` and GitHub remain authorita
 | Validation hardening | #52 | #53 | `6b89b54d` | `29749033054` | `ff15b708` | PowerShell failure propagation | COMPLETE |
 | Status reconciliation | #54 | #55 | `0e1e45c` | `29749717131` | `f46ccda7` | State, domain map, roadmap and handoff | COMPLETE |
 | M2.3a | #56 | #57 | `eff0418` | `29752419502` | `53972cc2` | Signed party-source artifact ingestion | COMPLETE |
-| M2.3b | #51 | Pending | Pending | Pending | Pending | Source-owned export emitters | NEXT |
+| M2.3a hardening | #59 | Pending | Pending | Pending | Pending | Safe multipage snapshot progress | IN PROGRESS |
+| M2.3b | #51 / Gestudio #14 | Pending | Pending | Pending | Pending | Gestudio source emitter | VALIDATED LOCALLY |
 
 ## Risks and blockers
 
 1. Public visibility blocks proprietary vertical implementation under ADR 0002.
-2. Issue #51 requires coordinated changes in source repositories; this repository
-   must not copy profiles or connect to source databases.
+2. Issue #51 requires coordinated merge and deployment work; this repository
+   contains only synthetic fixtures and must not copy profiles or connect to source databases.
 3. Docker is mandatory for local integration evidence.
 4. Host `java`/Maven JDK resolution differs; Maven's Java 21 result is authoritative for repository validation.
 5. No deployment, backup or recovery environment exists; production readiness is not claimed.
 
 ## Next action
 
-1. Keep #51 open and coordinate one source-owned Gestudio exporter for the v1
-   contract without copying its profile model.
-2. Add the Scalaris exporter independently after its tenant mapping is explicit.
-3. Treat the platform receiver as PARTIAL until at least one source emitter is
-   deployed and exercised end to end.
+1. Finish the cross-repository smoke and exact-head CI for platform and Gestudio.
+2. Keep #51 open after Gestudio if its checklist still includes Scalaris or
+   production operation.
+3. Add Scalaris independently only after its tenant mapping is explicit.
+4. Treat the integration as PENDING DEPLOYMENT after merge; local evidence is not
+   production evidence.
 
 ## Recovery
 
-Documentation changes are reversible by a normal revert. Runtime migrations V1-V7 are immutable; operational schema corrections require a new forward migration.
+Documentation changes are reversible by a normal revert. Runtime migrations V1-V8 are immutable after merge; operational schema corrections require a new forward migration.

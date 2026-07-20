@@ -23,7 +23,13 @@ import com.jereplatform.kernel.tenancy.application.TenantAccessService;
 import com.jereplatform.kernel.tenancy.application.TenantProvisioningService;
 import com.jereplatform.platform.parties.PartySourceExport;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -55,20 +61,20 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     properties = {
         "platform.security.jwt-secret=party-reference-integration-secret-0123456789abcdef",
         "platform.security.access-token-lifetime=PT15M",
-        "platform.security.refresh-token-lifetime=P30D",
-        "platform.party-sources.gestudio-current-secret=gestudio-current-secret-for-integration-0001",
-        "platform.party-sources.gestudio-previous-secret=gestudio-previous-secret-for-integration-0002",
-        "platform.party-sources.scalaris-current-secret=scalaris-current-secret-for-integration-0003",
-        "platform.party-sources.scalaris-previous-secret=scalaris-previous-secret-for-integration-0004"
+        "platform.security.refresh-token-lifetime=P30D"
     }
 )
 class PartyReferenceIntegrationIT {
 
     private static final String PASSWORD = "correct-horse-battery-staple";
-    private static final String GESTUDIO_CURRENT_SECRET =
-        "gestudio-current-secret-for-integration-0001";
-    private static final String SCALARIS_PREVIOUS_SECRET =
-        "scalaris-previous-secret-for-integration-0004";
+    private static final UUID GESTUDIO_SMOKE_TENANT =
+        UUID.fromString("00000000-0000-0000-0000-0000000000a1");
+    private static final String GESTUDIO_CURRENT_SECRET = runtimeSecret(
+        "GESTUDIO_SOURCE_EXPORT_SMOKE_SECRET");
+    private static final String GESTUDIO_PREVIOUS_SECRET = runtimeSecret(
+        "GESTUDIO_SOURCE_EXPORT_SMOKE_PREVIOUS_SECRET");
+    private static final String SCALARIS_CURRENT_SECRET = runtimeSecret(null);
+    private static final String SCALARIS_PREVIOUS_SECRET = runtimeSecret(null);
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
@@ -79,6 +85,18 @@ class PartyReferenceIntegrationIT {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add(
+            "platform.party-sources.gestudio-current-secret",
+            () -> GESTUDIO_CURRENT_SECRET);
+        registry.add(
+            "platform.party-sources.gestudio-previous-secret",
+            () -> GESTUDIO_PREVIOUS_SECRET);
+        registry.add(
+            "platform.party-sources.scalaris-current-secret",
+            () -> SCALARIS_CURRENT_SECRET);
+        registry.add(
+            "platform.party-sources.scalaris-previous-secret",
+            () -> SCALARIS_PREVIOUS_SECRET);
     }
 
     @Autowired
@@ -518,6 +536,281 @@ class PartyReferenceIntegrationIT {
     }
 
     @Test
+    void completeSnapshotRequiresEveryPageAndReconcilesAcrossAcceptedPages() throws Exception {
+        var owner = createAccount("paged-export-owner");
+        authorizationAdministration.bootstrapOwner(owner.tenantId(), owner.membershipId());
+        var token = login(owner);
+        var checkpoint = unique("paged-checkpoint");
+        var first = pagedExportBody(
+            owner,
+            checkpoint,
+            "opaque-page-2",
+            1,
+            3,
+            false,
+            new PartySourceExport.SourceRecord("student-page-1", "Student Page One", true)
+        );
+        var second = pagedExportBody(
+            owner,
+            checkpoint,
+            "opaque-page-3",
+            2,
+            3,
+            false,
+            new PartySourceExport.SourceRecord("student-page-2", "Student Page Two", true)
+        );
+        var last = pagedExportBody(
+            owner,
+            checkpoint,
+            null,
+            3,
+            3,
+            true,
+            new PartySourceExport.SourceRecord("student-page-3", "Student Page Three", false)
+        );
+
+        var firstImport = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            first
+        );
+        var missingPage = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            last
+        );
+
+        assertThat(firstImport.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(missingPage.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(missingPage.getBody()).containsEntry(
+            "code", "party_source_snapshot_not_complete");
+        assertThat(sourceCount(owner, "GESTUDIO_STUDENT")).isEqualTo(1);
+
+        assertThat(postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            second
+        ).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        var completed = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            last
+        );
+        assertThat(completed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        var reconciliationBody = (Map<?, ?>) completed.getBody().get("reconciliation");
+        assertThat(reconciliationBody.get("absentMappings")).isEqualTo(0);
+        assertThat(reconciliationBody.get("pageNumber")).isEqualTo(3);
+        assertThat(reconciliationBody.get("pageCount")).isEqualTo(3);
+        assertThat(sourceCount(owner, "GESTUDIO_STUDENT")).isEqualTo(3);
+
+        var replayedFirst = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            first
+        );
+        assertThat(replayedFirst.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(replayedFirst.getBody()).containsEntry("replayed", true);
+
+        var changedFirst = first.replace("Student Page One", "Changed Page One");
+        var changedConflict = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            changedFirst
+        );
+        assertThat(changedConflict.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(changedConflict.getBody()).containsEntry(
+            "code", "party_source_page_conflict");
+
+        var unknownCheckpointPage = pagedExportBody(
+            owner,
+            unique("unknown-paged-checkpoint"),
+            "opaque-page-3",
+            2,
+            3,
+            false,
+            new PartySourceExport.SourceRecord("student-out-of-order", "Out Of Order", true)
+        );
+        var outOfOrder = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            unknownCheckpointPage
+        );
+        assertThat(outOfOrder.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(outOfOrder.getBody()).containsEntry(
+            "code", "party_source_snapshot_not_found");
+    }
+
+    @Test
+    void importsExactPagesProducedByTheGestudioEmitter() throws Exception {
+        var owner = createAccount("gestudio-emitter", GESTUDIO_SMOKE_TENANT);
+        authorizationAdministration.bootstrapOwner(owner.tenantId(), owner.membershipId());
+        var token = login(owner);
+        var artifactDirectory = gestudioArtifactDirectory();
+        var firstBody = Files.readString(
+            artifactDirectory.resolve("page-001.json"), StandardCharsets.UTF_8);
+        var lastBody = Files.readString(
+            artifactDirectory.resolve("page-002.json"), StandardCharsets.UTF_8);
+        var firstSignature = artifactSignature(artifactDirectory, "page-001", firstBody);
+        var lastSignature = artifactSignature(artifactDirectory, "page-002", lastBody);
+        assertThat(firstSignature).isEqualTo(signature(GESTUDIO_CURRENT_SECRET, firstBody));
+        assertThat(lastSignature).isEqualTo(signature(GESTUDIO_CURRENT_SECRET, lastBody));
+
+        double importedBefore = metricCount("imported");
+        double replayedBefore = metricCount("replayed");
+
+        assertThat(postSourceExportWithSignature(
+            "/api/party-source-exports/reconciliation",
+            token,
+            "GESTUDIO_STUDENT",
+            firstSignature,
+            firstBody
+        ).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(postSourceExportWithSignature(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            firstSignature,
+            firstBody
+        ).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(postSourceExportWithSignature(
+            "/api/party-source-exports/reconciliation",
+            token,
+            "GESTUDIO_STUDENT",
+            lastSignature,
+            lastBody
+        ).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(postSourceExportWithSignature(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            lastSignature,
+            lastBody
+        ).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        var replay = postSourceExportWithSignature(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            lastSignature,
+            lastBody
+        );
+        assertThat(replay.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(replay.getBody()).containsEntry("replayed", true);
+        assertThat(sourceCount(owner, "GESTUDIO_STUDENT")).isEqualTo(3);
+        assertThat(metricCount("imported") - importedBefore).isEqualTo(3.0d);
+        assertThat(metricCount("replayed") - replayedBefore).isEqualTo(1.0d);
+        assertThat(jdbcTemplate.queryForObject(
+            """
+            select count(*) from platform.audit_event
+             where tenant_id = ? and action_code = 'PARTY_SOURCE_EXPORT_IMPORT'
+               and result = 'SUCCESS'
+            """,
+            Integer.class,
+            owner.tenantId().value()
+        )).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+            """
+            select count(*) from platform.audit_event
+             where tenant_id = ? and action_code = 'PARTY_SOURCE_EXPORT_IMPORT'
+               and result = 'REPLAY'
+            """,
+            Integer.class,
+            owner.tenantId().value()
+        )).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+            """
+            select count(*) from platform.outbox_event
+             where tenant_id = ? and aggregate_type = 'PARTY_REFERENCE'
+            """,
+            Integer.class,
+            owner.tenantId().value()
+        )).isEqualTo(3);
+
+        var changedBody = firstBody.replace("Synthetic Student One", "Synthetic Changed One");
+        var conflict = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            changedBody
+        );
+        assertThat(conflict.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(conflict.getBody()).containsEntry("code", "party_source_page_conflict");
+
+        var badSignature = postSourceExportWithSignature(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            "sha256=" + "00".repeat(32),
+            firstBody
+        );
+        assertThat(badSignature.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        var other = createAccount("gestudio-emitter-other");
+        authorizationAdministration.bootstrapOwner(other.tenantId(), other.membershipId());
+        var otherToken = login(other);
+        var crossTenant = postSourceExportWithSignature(
+            "/api/party-source-exports/imports",
+            otherToken,
+            "GESTUDIO_STUDENT",
+            firstSignature,
+            firstBody
+        );
+        assertThat(crossTenant.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(crossTenant.getBody()).containsEntry(
+            "code", "party_source_tenant_mismatch");
+    }
+
+    @Test
+    void acceptsAnExistingGestudioArtifactDuringThePreviousSecretWindow() throws Exception {
+        var owner = createAccount("gestudio-rotation", GESTUDIO_SMOKE_TENANT);
+        authorizationAdministration.bootstrapOwner(owner.tenantId(), owner.membershipId());
+        var token = login(owner);
+        Path directory = previousGestudioArtifactDirectory();
+        String body = Files.readString(
+            directory.resolve("page-001.json"), StandardCharsets.UTF_8);
+        String configuredDirectory = System.getenv(
+            "GESTUDIO_SOURCE_EXPORT_SMOKE_PREVIOUS_OUTPUT");
+        if (configuredDirectory == null || configuredDirectory.isBlank()) {
+            body = body.replace(
+                "0dfc8481-0aa3-4252-893d-a8ee3e999d4b",
+                "10000000-0000-0000-0000-000000000001");
+        }
+        String artifactSignature = artifactSignature(
+            directory,
+            "page-001",
+            body,
+            GESTUDIO_PREVIOUS_SECRET
+        );
+        assertThat(artifactSignature).isEqualTo(
+            signature(GESTUDIO_PREVIOUS_SECRET, body));
+
+        var response = postSourceExportWithSignature(
+            "/api/party-source-exports/reconciliation",
+            token,
+            "GESTUDIO_STUDENT",
+            artifactSignature,
+            body
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
     void invalidOrIncompleteExportsNeverPartiallyWrite() throws Exception {
         var owner = createAccount("signed-export-negative");
         authorizationAdministration.bootstrapOwner(owner.tenantId(), owner.membershipId());
@@ -613,10 +906,33 @@ class PartyReferenceIntegrationIT {
     private AccountFixture createAccount(String prefix) {
         var tenantCode = unique(prefix);
         TenantId tenantId = provisioning.createTenant(tenantCode, prefix + " tenant");
+        return createAccount(prefix, tenantCode, tenantId);
+    }
+
+    private AccountFixture createAccount(String prefix, UUID tenantValue) {
+        var tenantCode = "gestudio-smoke";
+        var now = Timestamp.from(Instant.now());
+        jdbcTemplate.update(
+            """
+            insert into platform.tenant (
+                id, code, display_name, status, created_at, updated_at, version
+            ) values (?, ?, ?, 'ACTIVE', ?, ?, 0)
+            on conflict (id) do nothing
+            """,
+            tenantValue,
+            tenantCode,
+            prefix + " tenant",
+            now,
+            now
+        );
+        return createAccount(prefix, tenantCode, new TenantId(tenantValue));
+    }
+
+    private AccountFixture createAccount(String prefix, String tenantCode, TenantId tenantId) {
         OrganizationId organizationId = provisioning.createOrganization(
-            tenantId, "main", prefix + " organization");
+            tenantId, unique("organization"), prefix + " organization");
         var branchId = provisioning.createBranch(
-            tenantId, organizationId, "main", prefix + " branch");
+            tenantId, organizationId, unique("branch"), prefix + " branch");
         var subject = unique(prefix) + "@example.com";
         IdentityId identityId = provisioning.registerIdentity(subject);
         credentials.register(identityId, PASSWORD);
@@ -693,6 +1009,28 @@ class PartyReferenceIntegrationIT {
             sourceType,
             checkpoint,
             nextCursor,
+            fullSnapshot,
+            List.of(records)
+        ));
+    }
+
+    private String pagedExportBody(
+        AccountFixture account,
+        String checkpoint,
+        String nextCursor,
+        int pageNumber,
+        int pageCount,
+        boolean fullSnapshot,
+        PartySourceExport.SourceRecord... records
+    ) throws Exception {
+        return objectMapper.writeValueAsString(new PartySourceExport(
+            1,
+            account.tenantId().value(),
+            "GESTUDIO_STUDENT",
+            checkpoint,
+            nextCursor,
+            pageNumber,
+            pageCount,
             fullSnapshot,
             List.of(records)
         ));
@@ -784,6 +1122,71 @@ class PartyReferenceIntegrationIT {
 
     private static String unique(String prefix) {
         return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    private double metricCount(String outcome) {
+        var counter = meterRegistry.find("jere.party_source_export.records")
+            .tags("source", "GESTUDIO_STUDENT", "outcome", outcome)
+            .counter();
+        return counter == null ? 0.0d : counter.count();
+    }
+
+    private static Path gestudioArtifactDirectory() {
+        String generated = System.getenv("GESTUDIO_SOURCE_EXPORT_SMOKE_OUTPUT");
+        if (generated != null && !generated.isBlank()) {
+            return Path.of(generated).toAbsolutePath().normalize();
+        }
+        return findRepositoryRoot().resolve("contracts/parties/fixtures/gestudio-emitter-v1");
+    }
+
+    private static Path previousGestudioArtifactDirectory() {
+        String generated = System.getenv("GESTUDIO_SOURCE_EXPORT_SMOKE_PREVIOUS_OUTPUT");
+        if (generated != null && !generated.isBlank()) {
+            return Path.of(generated).toAbsolutePath().normalize();
+        }
+        return findRepositoryRoot().resolve("contracts/parties/fixtures/gestudio-emitter-v1");
+    }
+
+    private static String artifactSignature(Path directory, String baseName, String body)
+        throws Exception {
+        return artifactSignature(
+            directory, baseName, body, GESTUDIO_CURRENT_SECRET);
+    }
+
+    private static String artifactSignature(
+        Path directory,
+        String baseName,
+        String body,
+        String fallbackSecret
+    ) throws Exception {
+        Path signaturePath = directory.resolve(baseName + ".signature");
+        if (Files.exists(signaturePath)) {
+            return Files.readString(signaturePath, StandardCharsets.US_ASCII).trim();
+        }
+        return signature(fallbackSecret, body);
+    }
+
+    private static Path findRepositoryRoot() {
+        Path current = Path.of("").toAbsolutePath();
+        while (current != null) {
+            if (Files.exists(current.resolve("contracts/parties/source-export-v1.schema.json"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Repository root not found");
+    }
+
+    private static String runtimeSecret(String environmentName) {
+        if (environmentName != null) {
+            String configured = System.getenv(environmentName);
+            if (configured != null && !configured.isBlank()) {
+                return configured;
+            }
+        }
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     private record AccountFixture(

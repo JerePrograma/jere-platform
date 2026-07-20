@@ -44,17 +44,20 @@ public class PartyReferenceService {
     private final PartyReferenceStore store;
     private final ReliableCommandExecutor reliableCommands;
     private final OutboxService outboxService;
+    private final PartySourceSnapshotService snapshots;
     private final Clock clock;
 
     public PartyReferenceService(
         PartyReferenceStore store,
         ReliableCommandExecutor reliableCommands,
         OutboxService outboxService,
+        PartySourceSnapshotService snapshots,
         Clock clock
     ) {
         this.store = store;
         this.reliableCommands = reliableCommands;
         this.outboxService = outboxService;
+        this.snapshots = snapshots;
         this.clock = clock;
     }
 
@@ -122,6 +125,30 @@ public class PartyReferenceService {
         boolean fullSnapshot,
         List<PartySourceRecord> records
     ) {
+        return importRecords(
+            context,
+            sourceType,
+            checkpoint,
+            nextCursor,
+            null,
+            null,
+            null,
+            fullSnapshot,
+            records
+        );
+    }
+
+    public ReliableExecutionResult<PartySourceBatchImportResult> importRecords(
+        TenantContext context,
+        String sourceType,
+        String checkpoint,
+        String nextCursor,
+        Integer pageNumber,
+        Integer pageCount,
+        String payloadHash,
+        boolean fullSnapshot,
+        List<PartySourceRecord> records
+    ) {
         Objects.requireNonNull(context, "context must not be null");
         var approvedType = requireSourceType(sourceType);
         var normalizedCheckpoint = requireText(checkpoint, "checkpoint", 160);
@@ -134,6 +161,7 @@ public class PartyReferenceService {
         if (fullSnapshot && normalizedNextCursor != null) {
             throw new IllegalArgumentException("A full snapshot must not declare a next cursor");
         }
+        validatePageMetadata(pageNumber, pageCount, payloadHash, normalizedNextCursor, fullSnapshot);
 
         var normalizedRecords = new ArrayList<PartySourceRecord>(records.size());
         var sourceIds = new HashSet<String>();
@@ -164,6 +192,9 @@ public class PartyReferenceService {
                 approvedType.name(),
                 normalizedCheckpoint,
                 normalizedNextCursor,
+                pageNumber,
+                pageCount,
+                payloadHash,
                 fullSnapshot,
                 normalizedRecords
             ),
@@ -181,7 +212,22 @@ public class PartyReferenceService {
             context,
             command,
             PartySourceBatchImportResult.class,
-            () -> importBatchInsideTransaction(context, normalizedRecords)
+            () -> {
+                if (pageNumber != null) {
+                    snapshots.accept(
+                        context,
+                        approvedType.name(),
+                        normalizedCheckpoint,
+                        pageNumber,
+                        pageCount,
+                        payloadHash,
+                        normalizedNextCursor,
+                        fullSnapshot,
+                        normalizedRecords.stream().map(PartySourceRecord::sourceId).toList()
+                    );
+                }
+                return importBatchInsideTransaction(context, normalizedRecords);
+            }
         );
     }
 
@@ -325,6 +371,9 @@ public class PartyReferenceService {
         String sourceType,
         String checkpoint,
         String nextCursor,
+        Integer pageNumber,
+        Integer pageCount,
+        String payloadHash,
         boolean fullSnapshot,
         List<PartySourceRecord> records
     ) {
@@ -334,6 +383,9 @@ public class PartyReferenceService {
                 writeText(output, sourceType);
                 writeText(output, checkpoint);
                 writeText(output, nextCursor);
+                output.writeInt(pageNumber == null ? -1 : pageNumber);
+                output.writeInt(pageCount == null ? -1 : pageCount);
+                writeText(output, payloadHash);
                 output.writeBoolean(fullSnapshot);
                 output.writeInt(records.size());
                 for (var record : records) {
@@ -383,5 +435,26 @@ public class PartyReferenceService {
             throw new IllegalArgumentException(field + " exceeds " + maximumLength + " characters");
         }
         return normalized;
+    }
+
+    private static void validatePageMetadata(
+        Integer pageNumber,
+        Integer pageCount,
+        String payloadHash,
+        String nextCursor,
+        boolean fullSnapshot
+    ) {
+        if (pageNumber == null && pageCount == null && payloadHash == null) {
+            return;
+        }
+        if (pageNumber == null || pageCount == null || payloadHash == null
+            || pageNumber < 1 || pageNumber > pageCount || pageCount > 1_000
+            || !payloadHash.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("Invalid party source page metadata");
+        }
+        boolean finalPage = pageNumber.equals(pageCount);
+        if (finalPage != fullSnapshot || finalPage != (nextCursor == null)) {
+            throw new IllegalArgumentException("Invalid party source page finality");
+        }
     }
 }
