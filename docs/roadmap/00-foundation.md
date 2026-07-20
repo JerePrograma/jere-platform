@@ -7,7 +7,7 @@ Create an executable, testable platform skeleton with enforceable module boundar
 ## Verified status
 
 Phase 0 and the shared Phase 1 kernel are complete on `main` at
-`f46ccda7d00fc7bb207a67d40cb38d5c19f672be`. Main CI run `29749867354`
+`53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8`. Main CI run `29752682676`
 passed on 2026-07-20.
 
 This roadmap records executable gates. A documented context is not an implemented capability.

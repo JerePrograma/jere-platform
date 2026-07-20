@@ -5,12 +5,12 @@
 | Field | Value |
 |---|---|
 | Date | 2026-07-20 |
-| Main SHA | `f46ccda7d00fc7bb207a67d40cb38d5c19f672be` |
-| Main CI | run `29749867354`, PASS |
-| Active branch | `agent/ingest-signed-party-exports` |
-| Active issue | #56 (child of #51) |
-| Active PR | Pending |
-| Active head | Pending |
+| Main SHA | `53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8` |
+| Main CI | run `29752682676`, PASS |
+| Active branch | None after documentation closeout |
+| Active issue | None; #51 is the next coordinated product issue |
+| Active PR | None after documentation closeout |
+| Active head | `53972cc2b15a1c4d1f49ac0724e1ba95c2bd29d8` |
 | Next product increment | #51, source-owned v1 export emitters |
 
 This file records verified continuation data. `main` and GitHub remain authoritative if any pending field becomes stale.
@@ -42,8 +42,8 @@ This file records verified continuation data. `main` and GitHub remain authorita
 | Local backend | PASS | Maven verify: 10 contract/architecture tests and 43 integration tests |
 | Local frontend | PASS | permission contract, lint, typecheck, 9 tests and build |
 | PowerShell failure propagation | PASS | simulated exit 17 stopped before npm |
-| PR #53 CI | PASS | run `29749033054` at head `6b89b54` |
-| Main post-merge CI | PASS | run `29749867354` at `f46ccda` |
+| PR #57 CI | PASS | run `29752419502` at head `eff0418` |
+| Main post-merge CI | PASS | run `29752682676` at `53972cc` |
 
 ## Durable decisions
 
@@ -69,7 +69,7 @@ This file records verified continuation data. `main` and GitHub remain authorita
 | M2.2 | #43 | #44 | `bd257311` | `29538189271` | `ac25f23a` | Party Reference Directory | COMPLETE |
 | Validation hardening | #52 | #53 | `6b89b54d` | `29749033054` | `ff15b708` | PowerShell failure propagation | COMPLETE |
 | Status reconciliation | #54 | #55 | `0e1e45c` | `29749717131` | `f46ccda7` | State, domain map, roadmap and handoff | COMPLETE |
-| M2.3a | #56 | Pending | Pending | Pending | Pending | Signed party-source artifact ingestion | ACTIVE |
+| M2.3a | #56 | #57 | `eff0418` | `29752419502` | `53972cc2` | Signed party-source artifact ingestion | COMPLETE |
 | M2.3b | #51 | Pending | Pending | Pending | Pending | Source-owned export emitters | NEXT |
 
 ## Risks and blockers
@@ -83,11 +83,11 @@ This file records verified continuation data. `main` and GitHub remain authorita
 
 ## Next action
 
-1. Finish issue #56, run the supported local matrix and validate the exact PR head.
-2. Merge only with the validated head SHA, then record its merge and main CI.
-3. Keep #51 open and coordinate one source-owned Gestudio exporter for the v1
+1. Keep #51 open and coordinate one source-owned Gestudio exporter for the v1
    contract without copying its profile model.
-4. Add the Scalaris exporter independently after its tenant mapping is explicit.
+2. Add the Scalaris exporter independently after its tenant mapping is explicit.
+3. Treat the platform receiver as PARTIAL until at least one source emitter is
+   deployed and exercised end to end.
 
 ## Recovery
 
