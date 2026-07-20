@@ -124,6 +124,7 @@ public class PartyReferenceController {
             report.unchangedMappings(),
             report.changedNames(),
             report.statusChanges(),
+            report.absentMappings(),
             report.hasBlockingFindings(),
             report.findings()
         );
@@ -197,6 +198,7 @@ public class PartyReferenceController {
         int unchangedMappings,
         int changedNames,
         int statusChanges,
+        int absentMappings,
         boolean blockingFindings,
         List<PartyReconciliationFinding> findings
     ) {

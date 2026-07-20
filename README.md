@@ -108,6 +108,7 @@ Estado y continuidad:
 - [mapa de dominios](docs/domain-map.md);
 - [roadmap](docs/roadmap/00-foundation.md);
 - [handoff y ledger](docs/project-status-and-handoff.md).
+- [contrato de exportación de referencias v1](docs/integration/party-source-export-v1.md).
 
 ## Límites
 

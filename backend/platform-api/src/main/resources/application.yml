@@ -22,6 +22,11 @@ platform:
     refresh-token-lifetime: ${AUTH_REFRESH_TOKEN_LIFETIME:P30D}
     refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
     bootstrap-token: ${PLATFORM_BOOTSTRAP_TOKEN:}
+  party-sources:
+    gestudio-current-secret: ${PARTY_SOURCE_GESTUDIO_CURRENT_SECRET:}
+    gestudio-previous-secret: ${PARTY_SOURCE_GESTUDIO_PREVIOUS_SECRET:}
+    scalaris-current-secret: ${PARTY_SOURCE_SCALARIS_CURRENT_SECRET:}
+    scalaris-previous-secret: ${PARTY_SOURCE_SCALARIS_PREVIOUS_SECRET:}
 
 management:
   endpoints:

@@ -1,0 +1,15 @@
+{
+  "contractVersion": 1,
+  "tenantId": "d49e8bda-bf5d-4ef6-a707-aaed67d19847",
+  "sourceType": "SCALARIS_THIRD_PARTY",
+  "checkpoint": "scalaris-third-parties-2026-07-20T14:00:00Z",
+  "nextCursor": "eyJvZmZzZXQiOjJ9",
+  "fullSnapshot": false,
+  "records": [
+    {
+      "sourceId": "8d2741a9-95da-47ca-bdb5-41c737195536",
+      "displayName": "Comercio Ejemplo SRL",
+      "active": true
+    }
+  ]
+}

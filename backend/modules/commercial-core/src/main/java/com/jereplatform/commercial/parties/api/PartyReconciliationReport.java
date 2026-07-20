@@ -9,6 +9,7 @@ public record PartyReconciliationReport(
     int unchangedMappings,
     int changedNames,
     int statusChanges,
+    int absentMappings,
     List<PartyReconciliationFinding> findings
 ) {
 

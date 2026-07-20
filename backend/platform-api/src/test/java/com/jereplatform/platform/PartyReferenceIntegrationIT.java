@@ -3,6 +3,7 @@ package com.jereplatform.platform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jereplatform.commercial.parties.api.PartyInactiveException;
 import com.jereplatform.commercial.parties.api.PartyLifecycleStatus;
 import com.jereplatform.commercial.parties.api.PartyMutationType;
@@ -20,12 +21,18 @@ import com.jereplatform.kernel.tenancy.api.OrganizationId;
 import com.jereplatform.kernel.tenancy.api.TenantId;
 import com.jereplatform.kernel.tenancy.application.TenantAccessService;
 import com.jereplatform.kernel.tenancy.application.TenantProvisioningService;
+import com.jereplatform.platform.parties.PartySourceExport;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,12 +55,20 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     properties = {
         "platform.security.jwt-secret=party-reference-integration-secret-0123456789abcdef",
         "platform.security.access-token-lifetime=PT15M",
-        "platform.security.refresh-token-lifetime=P30D"
+        "platform.security.refresh-token-lifetime=P30D",
+        "platform.party-sources.gestudio-current-secret=gestudio-current-secret-for-integration-0001",
+        "platform.party-sources.gestudio-previous-secret=gestudio-previous-secret-for-integration-0002",
+        "platform.party-sources.scalaris-current-secret=scalaris-current-secret-for-integration-0003",
+        "platform.party-sources.scalaris-previous-secret=scalaris-previous-secret-for-integration-0004"
     }
 )
 class PartyReferenceIntegrationIT {
 
     private static final String PASSWORD = "correct-horse-battery-staple";
+    private static final String GESTUDIO_CURRENT_SECRET =
+        "gestudio-current-secret-for-integration-0001";
+    private static final String SCALARIS_PREVIOUS_SECRET =
+        "scalaris-previous-secret-for-integration-0004";
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
@@ -89,6 +104,12 @@ class PartyReferenceIntegrationIT {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     @Test
     void sameSourceIdentifierIsIsolatedAcrossTenants() {
@@ -365,6 +386,230 @@ class PartyReferenceIntegrationIT {
         assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
+    @Test
+    void signedExportsAreTenantBoundIdempotentAndMeasured() throws Exception {
+        var owner = createAccount("signed-export-owner");
+        authorizationAdministration.bootstrapOwner(owner.tenantId(), owner.membershipId());
+        var token = login(owner);
+        var body = exportBody(
+            owner,
+            "GESTUDIO_STUDENT",
+            unique("checkpoint"),
+            "page-2",
+            false,
+            new PartySourceExport.SourceRecord("student-1", "First Student", true),
+            new PartySourceExport.SourceRecord("student-2", "Second Student", false)
+        );
+        var importedCounter = meterRegistry.counter(
+            "jere.party_source_export.records",
+            "source", "GESTUDIO_STUDENT",
+            "outcome", "imported"
+        );
+        var replayedCounter = meterRegistry.counter(
+            "jere.party_source_export.records",
+            "source", "GESTUDIO_STUDENT",
+            "outcome", "replayed"
+        );
+        var importedBefore = importedCounter.count();
+        var replayedBefore = replayedCounter.count();
+
+        var anonymous = postSourceExportWithoutToken(
+            "/api/party-source-exports/reconciliation",
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            body
+        );
+        var unauthorized = createAccount("signed-export-unauthorized");
+        var unauthorizedBody = exportBody(
+            unauthorized,
+            "GESTUDIO_STUDENT",
+            unique("unauthorized-checkpoint"),
+            null,
+            false
+        );
+        var forbidden = postSourceExport(
+            "/api/party-source-exports/reconciliation",
+            login(unauthorized),
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            unauthorizedBody
+        );
+
+        var preview = postSourceExport(
+            "/api/party-source-exports/reconciliation",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            body
+        );
+        var imported = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            body
+        );
+        var replayed = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            body
+        );
+
+        assertThat(anonymous.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(forbidden.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(preview.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(preview.getBody()).containsEntry("newMappings", 2);
+        assertThat(preview.getBody()).containsEntry("blockingFindings", false);
+        assertThat(imported.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(imported.getBody())
+            .containsEntry("accepted", true)
+            .containsEntry("replayed", false)
+            .containsEntry("totalRecords", 2)
+            .containsEntry("createdRecords", 2);
+        assertThat(replayed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(replayed.getBody()).containsEntry("replayed", true);
+        assertThat(importedCounter.count() - importedBefore).isEqualTo(2);
+        assertThat(replayedCounter.count() - replayedBefore).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+            """
+            select count(*) from platform.audit_event
+             where tenant_id = ? and action_code = 'PARTY_SOURCE_EXPORT_IMPORT'
+               and result = 'SUCCESS'
+            """,
+            Integer.class,
+            owner.tenantId().value()
+        )).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+            """
+            select count(*) from platform.outbox_event
+             where tenant_id = ? and aggregate_type = 'PARTY_REFERENCE'
+            """,
+            Integer.class,
+            owner.tenantId().value()
+        )).isEqualTo(2);
+        assertThat(parties.findBySource(context(owner), "GESTUDIO_STUDENT", "student-1")
+            .currentDisplayName()).isEqualTo("First Student");
+
+        var changedBody = body.replace("First Student", "Changed Student");
+        var conflict = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            changedBody
+        );
+        assertThat(conflict.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+        var otherOwner = createAccount("signed-export-other");
+        authorizationAdministration.bootstrapOwner(
+            otherOwner.tenantId(), otherOwner.membershipId());
+        var crossTenant = postSourceExport(
+            "/api/party-source-exports/imports",
+            login(otherOwner),
+            "GESTUDIO_STUDENT",
+            GESTUDIO_CURRENT_SECRET,
+            body
+        );
+        assertThat(crossTenant.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(crossTenant.getBody()).containsEntry(
+            "code", "party_source_tenant_mismatch");
+    }
+
+    @Test
+    void invalidOrIncompleteExportsNeverPartiallyWrite() throws Exception {
+        var owner = createAccount("signed-export-negative");
+        authorizationAdministration.bootstrapOwner(owner.tenantId(), owner.membershipId());
+        var token = login(owner);
+        var checkpoint = unique("checkpoint");
+        var initialBody = exportBody(
+            owner,
+            "SCALARIS_THIRD_PARTY",
+            checkpoint,
+            null,
+            false,
+            new PartySourceExport.SourceRecord("third-party-1", "Supplier One", true)
+        );
+
+        var importedWithPreviousSecret = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "SCALARIS_THIRD_PARTY",
+            SCALARIS_PREVIOUS_SECRET,
+            initialBody
+        );
+        assertThat(importedWithPreviousSecret.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(sourceCount(owner, "SCALARIS_THIRD_PARTY")).isEqualTo(1);
+
+        var wrongSignature = postSourceExportWithSignature(
+            "/api/party-source-exports/imports",
+            token,
+            "SCALARIS_THIRD_PARTY",
+            "sha256=" + "00".repeat(32),
+            initialBody
+        );
+        assertThat(wrongSignature.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(wrongSignature.getBody()).containsEntry(
+            "code", "party_source_authentication_failed");
+
+        var profileFieldBody = initialBody.replace(
+            "\"active\":true",
+            "\"active\":true,\"email\":\"not-accepted@example.invalid\""
+        );
+        var profileField = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "SCALARIS_THIRD_PARTY",
+            SCALARIS_PREVIOUS_SECRET,
+            profileFieldBody
+        );
+        assertThat(profileField.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(profileField.getBody()).containsEntry(
+            "code", "invalid_party_source_export");
+        assertThat(sourceCount(owner, "SCALARIS_THIRD_PARTY")).isEqualTo(1);
+
+        var invalidBody = exportBody(
+            owner,
+            "SCALARIS_THIRD_PARTY",
+            unique("invalid-checkpoint"),
+            null,
+            false,
+            new PartySourceExport.SourceRecord(null, "Missing identifier", true),
+            new PartySourceExport.SourceRecord("third-party-2", "Supplier Two", true)
+        );
+        var invalid = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "SCALARIS_THIRD_PARTY",
+            SCALARIS_PREVIOUS_SECRET,
+            invalidBody
+        );
+        assertThat(invalid.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        var invalidReconciliation = (Map<?, ?>) invalid.getBody().get("reconciliation");
+        assertThat(invalidReconciliation.get("blockingFindings")).isEqualTo(true);
+        assertThat(sourceCount(owner, "SCALARIS_THIRD_PARTY")).isEqualTo(1);
+
+        var completeButMissingBody = exportBody(
+            owner,
+            "SCALARIS_THIRD_PARTY",
+            unique("full-checkpoint"),
+            null,
+            true
+        );
+        var absent = postSourceExport(
+            "/api/party-source-exports/imports",
+            token,
+            "SCALARIS_THIRD_PARTY",
+            SCALARIS_PREVIOUS_SECRET,
+            completeButMissingBody
+        );
+        assertThat(absent.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        var absentReconciliation = (Map<?, ?>) absent.getBody().get("reconciliation");
+        assertThat(absentReconciliation.get("absentMappings")).isEqualTo(1);
+        assertThat(sourceCount(owner, "SCALARIS_THIRD_PARTY")).isEqualTo(1);
+    }
+
     private AccountFixture createAccount(String prefix) {
         var tenantCode = unique(prefix);
         TenantId tenantId = provisioning.createTenant(tenantCode, prefix + " tenant");
@@ -431,6 +676,96 @@ class PartyReferenceIntegrationIT {
             HttpMethod.POST,
             new HttpEntity<>(request, headers),
             Map.class
+        );
+    }
+
+    private String exportBody(
+        AccountFixture account,
+        String sourceType,
+        String checkpoint,
+        String nextCursor,
+        boolean fullSnapshot,
+        PartySourceExport.SourceRecord... records
+    ) throws Exception {
+        return objectMapper.writeValueAsString(new PartySourceExport(
+            1,
+            account.tenantId().value(),
+            sourceType,
+            checkpoint,
+            nextCursor,
+            fullSnapshot,
+            List.of(records)
+        ));
+    }
+
+    private org.springframework.http.ResponseEntity<Map> postSourceExport(
+        String path,
+        String token,
+        String sourceType,
+        String secret,
+        String body
+    ) throws Exception {
+        return postSourceExportWithSignature(
+            path,
+            token,
+            sourceType,
+            signature(secret, body),
+            body
+        );
+    }
+
+    private org.springframework.http.ResponseEntity<Map> postSourceExportWithSignature(
+        String path,
+        String token,
+        String sourceType,
+        String signature,
+        String body
+    ) {
+        var headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Party-Source-Type", sourceType);
+        headers.set("X-Party-Export-Signature", signature);
+        return restTemplate.exchange(
+            path,
+            HttpMethod.POST,
+            new HttpEntity<>(body, headers),
+            Map.class
+        );
+    }
+
+    private org.springframework.http.ResponseEntity<Map> postSourceExportWithoutToken(
+        String path,
+        String sourceType,
+        String secret,
+        String body
+    ) throws Exception {
+        var headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Party-Source-Type", sourceType);
+        headers.set("X-Party-Export-Signature", signature(secret, body));
+        return restTemplate.exchange(
+            path,
+            HttpMethod.POST,
+            new HttpEntity<>(body, headers),
+            Map.class
+        );
+    }
+
+    private int sourceCount(AccountFixture account, String sourceType) {
+        return jdbcTemplate.queryForObject(
+            "select count(*) from platform.party_reference where tenant_id = ? and source_type = ?",
+            Integer.class,
+            account.tenantId().value(),
+            sourceType
+        );
+    }
+
+    private static String signature(String secret, String body) throws Exception {
+        var mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        return "sha256=" + HexFormat.of().formatHex(
+            mac.doFinal(body.getBytes(StandardCharsets.UTF_8))
         );
     }
 

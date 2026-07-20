@@ -7,8 +7,8 @@
 | Date | 2026-07-20 |
 | Repository | `JerePrograma/jere-platform` |
 | Default branch | `main` |
-| Main commit | `ff15b7081fc66ec13d645c91238c4b9f6d37c703` |
-| Main CI | run `29749213799`, successful |
+| Main commit | `f46ccda7d00fc7bb207a67d40cb38d5c19f672be` |
+| Main CI | run `29749867354`, successful |
 | Visibility | Public |
 | License | Proprietary, all rights reserved |
 | Database baseline | PostgreSQL 16, Flyway V1-V7 |
@@ -36,7 +36,7 @@ The repository is an executable foundation runtime. It is not deployed evidence,
 | Authorization and entitlements | IMPLEMENTED | V4; 19-code JSON/Java/TypeScript contract | No management UI; vertical permissions are catalog entries only |
 | Audit, idempotency and outbox | IMPLEMENTED | V5-V6; append-only audit and PostgreSQL worker model | No external dispatcher or production operations integration |
 | Party Reference Directory | IMPLEMENTED | V7, API, reliable imports, reconciliation, audit/outbox | Production source export adapters are issue #51 |
-| Source export integration | DOCUMENTED WITHOUT IMPLEMENTATION | ADR 0008 and issue #51 | No authenticated cursor-based source export is connected |
+| Source export integration | PARTIAL | signed v1 schema, HMAC rotation, tenant binding, dry-run, atomic import and metrics | Source-owned emitters remain issue #51 |
 | Vertical domains | PLACEHOLDER | `VerticalsModule` marker only | No academy, commerce, appointments or logistics use case |
 | Platform shell | PARTIAL | Accessible static React shell builds | No authentication, tenant switcher, routing or API flow |
 | Shared UI | PARTIAL | One card component and formatter with tests | Not a design system yet |
@@ -57,6 +57,7 @@ The API currently exposes:
 - current session and authorization snapshot;
 - tenant-scoped audit and reliability operations;
 - tenant-scoped party-reference lookup, search, import and dry-run reconciliation;
+- signed, tenant-bound party-source artifact reconciliation and atomic page import;
 - Actuator health and info.
 
 Controllers remain in `platform-api`. Application and persistence behavior is owned by `kernel` or `commercial-core`. No module shares a JPA entity or imports another module's internal packages.
@@ -92,21 +93,26 @@ On 2026-07-20, with Docker Desktop available:
 
 | Command | Result | Evidence |
 |---|---|---|
-| `mvn -B -f backend/pom.xml verify` | PASS | 9 contract/architecture tests and 41 PostgreSQL integration tests; Flyway V1-V7 |
+| `mvn -B -f backend/pom.xml verify` | PASS | 10 contract/architecture tests and 43 PostgreSQL integration tests; Flyway V1-V7 |
 | `npm --prefix frontend ci` | PASS | 212 locked packages installed |
 | `npm --prefix frontend run check` | PASS | 19 permission codes, lint, typecheck and 9 tests |
 | `npm --prefix frontend run build` | PASS | platform shell and shared UI built |
 | `scripts/validate.ps1` failure regression | PASS | simulated Maven exit 17 returned 17 and did not invoke npm |
-| Main CI at `ff15b70` | PASS | GitHub Actions run `29749213799` |
+| Main CI at `f46ccda` | PASS | GitHub Actions run `29749867354` |
 
 ## Risks and blockers
 
 1. The repository is public. ADR 0002 prohibits sensitive vertical logic, customer data and regulated implementations until visibility or public/private boundaries change.
-2. Issue #51 spans contracts with source products. Jere Platform must consume an authenticated read-only contract or signed artifact, never connect directly to source databases.
+2. Issue #51 still requires source-owned emitters. The platform-side signed artifact
+   receiver is implemented, but Jere Platform must never connect directly to source
+   databases.
 3. The global `java` executable on the audited Windows host resolves to Java 8 while Maven resolves Java 21. Repository validation is green, but direct Java commands require PATH awareness.
 4. Local integration validation requires Docker. Docker absence is an environment failure and must never be reported as a passed backend gate.
 5. Open Dependabot PRs #46-#48 fail frontend checks and must not be merged without compatibility work. They do not make current `main` red.
 
 ## Explicitly not implemented
 
-There are no microservices, broker, Kubernetes manifests, production deployment, customer migration, financial shared module, vertical UI, background notification provider or real source adapter. Directories and documentation are not counted as capabilities.
+There are no microservices, broker, Kubernetes manifests, production deployment,
+customer migration, financial shared module, vertical UI, background notification
+provider or source-owned export emitter. The platform receiver alone is not an
+operational end-to-end source integration.

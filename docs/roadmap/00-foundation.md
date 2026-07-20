@@ -6,7 +6,9 @@ Create an executable, testable platform skeleton with enforceable module boundar
 
 ## Verified status
 
-Phase 0 and the shared Phase 1 kernel are complete on `main` at `ff15b7081fc66ec13d645c91238c4b9f6d37c703`. Main CI run `29749213799` passed on 2026-07-20.
+Phase 0 and the shared Phase 1 kernel are complete on `main` at
+`f46ccda7d00fc7bb207a67d40cb38d5c19f672be`. Main CI run `29749867354`
+passed on 2026-07-20.
 
 This roadmap records executable gates. A documented context is not an implemented capability.
 
@@ -122,15 +124,20 @@ Exit evidence: PostgreSQL tenant-boundary and authorization tests, authenticatio
 |---|---|---|
 | M2.1 compare Gestudio and inventarios-muebleria | COMPLETE | issue #28, PR #42, ADR 0007 |
 | M2.2 tenant Party Reference Directory | COMPLETE | issue #43, PR #44, ADR 0008, Flyway V7 |
-| M2.3 production source export adapters | NEXT | issue #51 |
+| M2.3a signed artifact ingestion | IMPLEMENTED | issue #56, ADR 0009, v1 schema and integration tests |
+| M2.3b source-owned export emitters | NEXT | issue #51; coordinated Gestudio and Scalaris changes |
 
-M2.3 must remain a reference-only integration. It may import stable source ID, display name and active state with cursor metadata. It may not connect directly to source databases or copy email, document, address, guardian, tax or commercial-profile fields.
+M2.3 remains a reference-only integration. The platform can authenticate, dry-run
+and atomically ingest resumable artifacts, but issue #51 is not complete until the
+source products emit the v1 contract. No adapter may connect Jere Platform directly
+to source databases or copy email, document, address, guardian, tax or
+commercial-profile fields.
 
 ## Later milestones
 
 These are ordered gates, not simultaneous workstreams:
 
-1. Complete and operate M2.3 source adapters.
+1. Complete and operate the M2.3 source-owned export emitters.
 2. Prove one tenant-scoped CRM/contact flow only if product evidence requires more than Party References.
 3. Prove catalog/pricing compatibility in two current products before shared persistence.
 4. Add a complete quote or inventory vertical slice with authorization, tenancy, audit and tests.
