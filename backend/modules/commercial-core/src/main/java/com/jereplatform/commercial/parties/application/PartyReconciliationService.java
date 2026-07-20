@@ -31,6 +31,24 @@ public class PartyReconciliationService {
         TenantContext context,
         List<PartySourceCandidate> candidates
     ) {
+        return analyze(context, candidates, null);
+    }
+
+    public PartyReconciliationReport analyzeCompleteSnapshot(
+        TenantContext context,
+        String sourceType,
+        List<PartySourceCandidate> candidates
+    ) {
+        var approvedType = PartySourceType.fromCode(sourceType)
+            .orElseThrow(() -> new IllegalArgumentException("Unknown party source type"));
+        return analyze(context, candidates, approvedType);
+    }
+
+    private PartyReconciliationReport analyze(
+        TenantContext context,
+        List<PartySourceCandidate> candidates,
+        PartySourceType completeSnapshotType
+    ) {
         if (candidates == null || candidates.size() > 10_000) {
             throw new IllegalArgumentException("candidates must contain at most 10000 records");
         }
@@ -65,6 +83,7 @@ public class PartyReconciliationService {
         int unchangedMappings = 0;
         int changedNames = 0;
         int statusChanges = 0;
+        int absentMappings = 0;
 
         for (var candidate : normalized) {
             var key = candidate.sourceType() + "|" + candidate.sourceId();
@@ -95,6 +114,31 @@ public class PartyReconciliationService {
             }
         }
 
+        if (completeSnapshotType != null) {
+            var presentSourceIds = new HashSet<String>();
+            for (var candidate : normalized) {
+                var key = candidate.sourceType() + "|" + candidate.sourceId();
+                if (candidate.sourceType().equals(completeSnapshotType.name())
+                    && !duplicated.contains(key)) {
+                    presentSourceIds.add(candidate.sourceId());
+                }
+            }
+            for (var sourceId : store.findSourceIds(
+                context.tenantId().value(),
+                completeSnapshotType.name()
+            )) {
+                if (!presentSourceIds.contains(sourceId)) {
+                    absentMappings++;
+                    findings.add(new PartyReconciliationFinding(
+                        "SOURCE_RECORD_ABSENT",
+                        completeSnapshotType.name(),
+                        sourceId,
+                        "The mapped source record is absent from the complete snapshot"
+                    ));
+                }
+            }
+        }
+
         return new PartyReconciliationReport(
             candidates.size(),
             valid,
@@ -102,6 +146,7 @@ public class PartyReconciliationService {
             unchangedMappings,
             changedNames,
             statusChanges,
+            absentMappings,
             findings
         );
     }

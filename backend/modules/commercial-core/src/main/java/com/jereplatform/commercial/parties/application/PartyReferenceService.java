@@ -8,6 +8,7 @@ import com.jereplatform.commercial.parties.api.PartyRef;
 import com.jereplatform.commercial.parties.api.PartyReferenceNotFoundException;
 import com.jereplatform.commercial.parties.api.PartyReferenceView;
 import com.jereplatform.commercial.parties.api.PartySourceAdapter;
+import com.jereplatform.commercial.parties.api.PartySourceBatchImportResult;
 import com.jereplatform.commercial.parties.api.PartySourceRecord;
 import com.jereplatform.commercial.parties.api.PartySourceType;
 import com.jereplatform.commercial.parties.internal.persistence.PartyReferenceStore;
@@ -17,9 +18,16 @@ import com.jereplatform.kernel.reliability.api.ReliableExecutionResult;
 import com.jereplatform.kernel.reliability.application.OutboxService;
 import com.jereplatform.kernel.reliability.application.ReliableCommandExecutor;
 import com.jereplatform.kernel.tenancy.api.TenantContext;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,6 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PartyReferenceService {
 
     private static final Duration IDEMPOTENCY_RETENTION = Duration.ofDays(30);
+    private static final Duration EXPORT_IDEMPOTENCY_RETENTION = Duration.ofDays(365);
+    private static final int MAX_EXPORT_RECORDS = 1_000;
 
     private final PartyReferenceStore store;
     private final ReliableCommandExecutor reliableCommands;
@@ -102,6 +112,77 @@ public class PartyReferenceService {
             throw new IllegalArgumentException("Party source adapter returned a different source identifier");
         }
         return importRecord(context, loaded, idempotencyKey);
+    }
+
+    public ReliableExecutionResult<PartySourceBatchImportResult> importRecords(
+        TenantContext context,
+        String sourceType,
+        String checkpoint,
+        String nextCursor,
+        boolean fullSnapshot,
+        List<PartySourceRecord> records
+    ) {
+        Objects.requireNonNull(context, "context must not be null");
+        var approvedType = requireSourceType(sourceType);
+        var normalizedCheckpoint = requireText(checkpoint, "checkpoint", 160);
+        var normalizedNextCursor = nextCursor == null
+            ? null
+            : requireText(nextCursor, "nextCursor", 500);
+        if (records == null || records.size() > MAX_EXPORT_RECORDS) {
+            throw new IllegalArgumentException("records must contain at most 1000 records");
+        }
+        if (fullSnapshot && normalizedNextCursor != null) {
+            throw new IllegalArgumentException("A full snapshot must not declare a next cursor");
+        }
+
+        var normalizedRecords = new ArrayList<PartySourceRecord>(records.size());
+        var sourceIds = new HashSet<String>();
+        for (var record : records) {
+            Objects.requireNonNull(record, "records must not contain null values");
+            var normalized = new PartySourceRecord(
+                approvedType.name(),
+                record.sourceId(),
+                record.displayName(),
+                record.status()
+            );
+            if (!approvedType.name().equals(record.sourceType())) {
+                throw new IllegalArgumentException("Record source type does not match export source type");
+            }
+            if (!sourceIds.add(normalized.sourceId())) {
+                throw new IllegalArgumentException("Export records contain duplicate source identifiers");
+            }
+            normalizedRecords.add(normalized);
+        }
+        normalizedRecords.sort(Comparator.comparing(PartySourceRecord::sourceId));
+
+        var command = new ReliableCommand(
+            "PARTY_SOURCE_EXPORT_IMPORT",
+            approvedType.name()
+                + ":" + normalizedCheckpoint
+                + ":" + (normalizedNextCursor == null ? "END" : normalizedNextCursor),
+            canonicalExportRequest(
+                approvedType.name(),
+                normalizedCheckpoint,
+                normalizedNextCursor,
+                fullSnapshot,
+                normalizedRecords
+            ),
+            "PARTY_SOURCE_EXPORT_IMPORT",
+            "PARTY_SOURCE_EXPORT",
+            normalizedCheckpoint,
+            Map.of(
+                "sourceType", approvedType.name(),
+                "recordCount", Integer.toString(normalizedRecords.size()),
+                "fullSnapshot", Boolean.toString(fullSnapshot)
+            ),
+            EXPORT_IDEMPOTENCY_RETENTION
+        );
+        return reliableCommands.execute(
+            context,
+            command,
+            PartySourceBatchImportResult.class,
+            () -> importBatchInsideTransaction(context, normalizedRecords)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -189,6 +270,24 @@ public class PartyReferenceService {
         return new PartyImportResult(updated, PartyMutationType.UPDATED);
     }
 
+    private PartySourceBatchImportResult importBatchInsideTransaction(
+        TenantContext context,
+        List<PartySourceRecord> records
+    ) {
+        int created = 0;
+        int updated = 0;
+        int unchanged = 0;
+        for (var record : records) {
+            var result = importInsideTransaction(context, record);
+            switch (result.mutation()) {
+                case CREATED -> created++;
+                case UPDATED -> updated++;
+                case UNCHANGED -> unchanged++;
+            }
+        }
+        return new PartySourceBatchImportResult(records.size(), created, updated, unchanged);
+    }
+
     private void enqueueChanged(
         TenantContext context,
         PartyReferenceView party,
@@ -222,6 +321,43 @@ public class PartyReferenceService {
         ).getBytes(StandardCharsets.UTF_8);
     }
 
+    private static byte[] canonicalExportRequest(
+        String sourceType,
+        String checkpoint,
+        String nextCursor,
+        boolean fullSnapshot,
+        List<PartySourceRecord> records
+    ) {
+        try {
+            var bytes = new ByteArrayOutputStream();
+            try (var output = new DataOutputStream(bytes)) {
+                writeText(output, sourceType);
+                writeText(output, checkpoint);
+                writeText(output, nextCursor);
+                output.writeBoolean(fullSnapshot);
+                output.writeInt(records.size());
+                for (var record : records) {
+                    writeText(output, record.sourceId());
+                    writeText(output, record.displayName());
+                    writeText(output, record.status().name());
+                }
+            }
+            return bytes.toByteArray();
+        } catch (IOException impossible) {
+            throw new UncheckedIOException(impossible);
+        }
+    }
+
+    private static void writeText(DataOutputStream output, String value) throws IOException {
+        if (value == null) {
+            output.writeInt(-1);
+            return;
+        }
+        var encoded = value.getBytes(StandardCharsets.UTF_8);
+        output.writeInt(encoded.length);
+        output.write(encoded);
+    }
+
     private static PartySourceType requireSourceType(String sourceType) {
         return PartySourceType.fromCode(sourceType)
             .orElseThrow(() -> new IllegalArgumentException("Unknown party source type"));
@@ -234,6 +370,17 @@ public class PartyReferenceService {
         var normalized = sourceId.trim();
         if (normalized.length() > 160) {
             throw new IllegalArgumentException("sourceId exceeds 160 characters");
+        }
+        return normalized;
+    }
+
+    private static String requireText(String value, String field, int maximumLength) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        var normalized = value.trim();
+        if (normalized.length() > maximumLength) {
+            throw new IllegalArgumentException(field + " exceeds " + maximumLength + " characters");
         }
         return normalized;
     }

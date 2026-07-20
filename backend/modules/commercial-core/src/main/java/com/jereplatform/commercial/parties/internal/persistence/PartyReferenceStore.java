@@ -172,6 +172,19 @@ public class PartyReferenceStore {
         return count == null ? 0 : count;
     }
 
+    public List<String> findSourceIds(UUID tenantId, String sourceType) {
+        return jdbcTemplate.queryForList(
+            """
+            select source_id from platform.party_reference
+             where tenant_id = ? and source_type = ?
+             order by source_id
+            """,
+            String.class,
+            tenantId,
+            sourceType
+        );
+    }
+
     private static Optional<PartyReferenceView> first(List<PartyReferenceView> rows) {
         return rows.stream().findFirst();
     }
