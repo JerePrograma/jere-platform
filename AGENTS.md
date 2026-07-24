@@ -1,91 +1,108 @@
-# AGENTS.md
+# Contexto rápido para agentes
 
-## Mission
+> La documentación es una guía secundaria. Antes de modificar el proyecto, verificar siempre el estado actual del código, las pruebas, la configuración y las referencias reales.
 
-Build Jere Platform as the canonical technical foundation for multiple SaaS verticals while preserving product focus, operational simplicity and strong module boundaries.
+## Propósito
 
-## Current phase
+Jere Platform es la base técnica compartida para varios productos SaaS verticales. El estado actual es un **foundation runtime ejecutable**, no un producto terminado ni un entorno productivo.
 
-Foundation only. Do not migrate production code, create microservices or redesign product domains until the relevant architecture and migration documents exist.
+Documentación ampliada: [`docs/assistant-reference/README.md`](docs/assistant-reference/README.md).
 
-## Required architecture
+## Stack y módulos
 
-- Monorepo.
-- Modular monolith for the main platform API.
-- Java 21 and Spring Boot for backend applications.
-- PostgreSQL and Flyway for persistence.
-- React, TypeScript and Vite for web applications.
-- Multi-tenancy enforced from request context through persistence.
-- Internal modules communicate through explicit application interfaces or domain events.
-- External asynchronous work uses a transactional outbox before introducing infrastructure-heavy brokers.
+- Java 21, Spring Boot 3.5.7, Maven.
+- PostgreSQL 16, Flyway V1-V8, JPA/JDBC.
+- React 18, TypeScript 5.7, Vite 6, npm workspaces.
+- `kernel`: tenancy, identidad, autorización y confiabilidad.
+- `commercial-core`: Party Reference Directory.
+- `verticals`: placeholder, sin casos de uso.
+- `platform-api`: composición HTTP/security; no es dueño de negocio.
+- `platform-shell`: frontend estático, sin autenticación ni llamadas API.
 
-## Module layers
+## Fuente de verdad y límites
 
-Each backend module should expose only intentional contracts and use this internal shape where practical:
+- Inspeccionar código, tests, configuración, migraciones y referencias antes de editar.
+- No importar repositorios fuente completos.
+- No compartir entidades JPA ni consultar tablas de otro módulo.
+- No importar paquetes `internal` desde fuera de su módulo.
+- No agregar abstracciones genéricas sin dos usos actuales demostrados.
+- No extraer microservicios sin ADR y evidencia operativa.
+- Todo dato tenant-owned debe incluir aislamiento y unicidad tenant-aware.
+- Identity, membership, role, entitlement, feature flag y configuración son conceptos distintos.
+- Access JWT no contiene roles ni permisos; autorización backend consulta PostgreSQL actual.
+- Mutaciones reintentables usan idempotencia, auditoría y outbox.
+- Migraciones publicadas son forward-only.
+- El repositorio es público y propietario: no incorporar lógica vertical sensible, datos reales, secretos, dumps ni infraestructura privada.
 
-```text
-<module>/
-├── api/             # public contracts and inbound adapters
-├── application/     # use cases and orchestration
-├── domain/          # business rules and aggregates
-├── infrastructure/  # persistence and outbound adapters
-└── internal/        # package-private implementation details
+## Comandos esenciales
+
+```bash
+cp .env.example .env
+docker compose --env-file .env -f infra/compose.yaml up -d
+mvn -B -f backend/pom.xml verify
+npm --prefix frontend ci
+npm --prefix frontend run check
+npm --prefix frontend run build
 ```
 
-## Non-negotiable rules
+Validación integral:
 
-1. Do not import an existing repository wholesale.
-2. Do not share JPA entities across module boundaries.
-3. Do not access another module's tables directly.
-4. Do not add a generic abstraction until at least two real use cases prove it.
-5. Do not extract a microservice without a documented operational reason.
-6. Do not commit secrets, real customer data, database dumps or private environment files.
-7. Every tenant-owned table must include tenant isolation and tenant-aware uniqueness.
-8. Permissions, entitlements, feature flags and configuration are separate concepts.
-9. Financial writes require idempotency and compensating records; avoid destructive mutation of financial history.
-10. Migrations are forward-only after release.
+```bash
+./scripts/validate.sh
+```
 
-## Source repositories
+```powershell
+./scripts/validate.ps1
+```
 
-Existing repositories are evidence and migration sources, not permanent dependencies:
+Docker debe estar operativo para Testcontainers. No afirmar que una validación pasó si no fue ejecutada.
 
-- `JerePrograma/Gestudio`
-- `JerePrograma/inventarios-muebleria`
-- `JerePrograma/GestorTurnosBarberia`
-- `JerePrograma/PresupuestadorFlete`
-- `JerePrograma/jr-prestamos-platform`
+## Flujo Git obligatorio
 
-Before migrating a capability:
+Trabajar directamente sobre `main` y publicar en `origin/main`, salvo instrucción explícita en contrario.
 
-1. Inventory the current behavior.
-2. Identify the canonical implementation.
-3. Add characterization tests or explicit acceptance criteria.
-4. Define the target module contract.
-5. Migrate the minimum coherent slice.
-6. Validate functional parity.
-7. Deprecate the duplicated implementation.
+1. `git status`; comprobar rama, remoto y upstream.
+2. Confirmar `main` y `origin/main`.
+3. `git fetch origin`.
+4. `git pull --ff-only origin main`.
+5. Detenerse ante cambios locales previos ajenos.
+6. Implementar solo el alcance solicitado.
+7. Ejecutar pruebas focalizadas y generales viables.
+8. Revisar `git diff`, ejecutar `git diff --check` y buscar secretos.
+9. Stagear solo archivos relacionados y crear commits pequeños.
+10. `git fetch origin`; si avanzó, rebasar solo commits locales no publicados.
+11. Ante conflictos dudosos, detenerse.
+12. `git push origin main` y confirmar divergencia `0 0`.
 
-## Change workflow
+Prohibido sin solicitud explícita: ramas, PR, forks, worktrees, stash, `git reset --hard`, `git clean` destructivo y force push.
 
-- Work from an issue or a documented phase objective.
-- Use branches named `agent/<short-description>` for agent-generated work.
-- Keep commits atomic and descriptive.
-- Open draft pull requests by default.
-- Include rationale, affected modules, validation and migration impact in the PR body.
-- Add or update an ADR when changing a durable architectural decision.
+## Validación mínima por cambio
 
-## Definition of done
+- Backend: tests del módulo + `mvn verify`.
+- Tenant/persistencia/concurrencia: integración PostgreSQL/Testcontainers.
+- Autorización: pruebas 401/403, tenant, entitlement y branch scope.
+- API: conservar rutas, status, errores y contratos.
+- Frontend: `npm run check` y `npm run build`.
+- Migración: nueva versión Flyway; no editar V1-V8.
+- Integración externa: contrato versionado, tenant binding, idempotencia, retry y outbox.
+- Documentación: actualizar autorreferencia si cambia una afirmación estable.
 
-A change is not complete merely because it compiles. Relevant changes must include:
+## Invariantes principales
 
-- automated tests;
-- tenant-boundary tests where data is tenant-owned;
-- authorization tests where access is restricted;
-- migration validation where schema changes;
-- documentation of public contracts;
-- no leaked secrets or local configuration;
-- a rollback or forward-recovery strategy for operationally significant changes.
+- `kernel` no depende de negocio; `commercial-core` no depende de `verticals`.
+- `platform-api` adapta HTTP y compone módulos; no acumula lógica de dominio.
+- Tenant context se deriva de sesión/membership; el cliente no lo autoriza.
+- Auditoría es append-only.
+- Same idempotency key + different content produce conflicto.
+- Outbox implica entrega at-least-once; consumers deben ser idempotentes.
+- Party Reference contiene referencia mínima, nunca perfil vertical.
+- Source export se firma sobre bytes exactos y preserva v1 legacy.
+- Cambios de contratos JSON/Java/TypeScript se hacen coordinadamente.
 
-## Scope discipline
+## Antes de terminar
 
-The platform exists to accelerate validated products. Do not build speculative modules merely because they might be reusable. Prefer one complete vertical slice over several unfinished frameworks.
+- revisar interfaces, consumidores, pruebas y efectos secundarios;
+- no introducir refactors generales ni upgrades no solicitados;
+- no dejar TODO, código provisional o mocks de producción;
+- documentar comandos reales y limitaciones;
+- confirmar working tree limpio y sincronizado.
